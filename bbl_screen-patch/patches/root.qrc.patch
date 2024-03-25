@@ -57,11 +57,12 @@
  <file>printerui/qml/printer/AMSUseBootPage.qml</file>
  <file>printerui/qml/printer/AdjustPage.qml</file>
  <file>printerui/qml/printer/AutoRefillPage.qml</file>
-@@ -195,18 +231,22 @@
+@@ -195,18 +231,23 @@
  <file>printerui/qml/printer/PrintSkipPage.qml</file>
  <file>printerui/qml/printer/Sector.qml</file>
  <file>printerui/qml/printer/SelfTestPage.qml</file>
 -<file>printerui/qml/printer/UtilitiesPage.qml</file>
++<file>printerui/qml/printer/TempGraph.qml</file>
 +<file>printerui/qml/printer/VibrationComp.qml</file>
 +<file>printerui/qml/printer/VibrationCompPlotter.qml</file>
  <file>printerui/qml/settings/AccountPage.qml</file>
@@ -81,7 +82,7 @@
  <file>printerui/qml/settings/InputPage.qml</file>
  <file>printerui/qml/settings/MaintenancePage.qml</file>
  <file>printerui/qml/settings/NetParaSetPage.qml</file>
-@@ -215,9 +255,14 @@
+@@ -215,9 +256,14 @@
  <file>printerui/qml/settings/RegionItem.qml</file>
  <file>printerui/qml/settings/ReleaseNotePage.qml</file>
  <file>printerui/qml/settings/SensorPage.qml</file>
@@ -96,7 +97,7 @@
  <file>printerui/qml/settings/WifiListPage.qml</file>
  <file>printerui/qml/settings/WifiSetupPage.qml</file>
  <file>printerui/qml/wizard/Calibrate1Page.qml</file>
-@@ -233,6 +278,16 @@
+@@ -233,6 +279,17 @@
  <file>printerui/qml/wizard/TermsPage.qml</file>
  <file>printerui/qml/wizard/WelcomePage.qml</file>
  <file>printerui/qml/wizard/WizardPage.qml</file>
@@ -110,10 +111,11 @@
 +<file>printerui/qml/x1plus/MeshCalcs.js</file>
 +<file>printerui/qml/x1plus/ShaperCalibration.js</file>
 +<file>printerui/qml/x1plus/Stats.js</file>
++<file>printerui/qml/x1plus/TempGraph.js</file>
  <file>printerui/text/error_texts.de.json</file>
  <file>printerui/text/error_texts.en.json</file>
  <file>printerui/text/error_texts.es.json</file>
-@@ -293,3 +348,4 @@
+@@ -293,3 +350,4 @@
  <file>printerui/text/terms.zh-cn.txt</file>
  <file>qt-project.org/imports/QtQuick/VirtualKeyboard/Styles/bbl/style.qml</file>
  </qresource></RCC>

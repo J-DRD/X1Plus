@@ -31,7 +31,13 @@
  
      MarginPanel {
          id: showPanel
-@@ -30,8 +45,8 @@
+@@ -25,15 +40,20 @@
+         topMargin: 23
+         bottomMargin: 24
+ 
++/*
+         ZCarouselView {
+             anchors.fill: parent
              interval: 10000
              orientation: hmsPanel.visible ? Qt.Vertical : Qt.Horizontal
              model: carouselImages.length === 0
@@ -41,4 +47,10 @@
 +                                        : img2 ]
                     : carouselImages.map(function(i) { return i.imageUrl })
          }
++*/
++        TempGraph {
++            anchors.fill: parent
++        }
      }
+ 
+     PrintPanel {

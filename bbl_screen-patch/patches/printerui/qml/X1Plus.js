@@ -8,6 +8,7 @@
 .import "./x1plus/GcodeGenerator.js" as X1PlusGcodeGenerator
 .import "./x1plus/BedMeshCalibration.js" as X1PlusBedMeshCalibration
 .import "./x1plus/ShaperCalibration.js" as X1PlusShaperCalibration
+.import "./x1plus/TempGraph.js" as X1PlusTempGraph
 
 /* Back-end model logic for X1Plus's UI
  *
@@ -45,11 +46,14 @@ X1Plus.BedMeshCalibration = X1PlusBedMeshCalibration;
 var BedMeshCalibration = X1PlusBedMeshCalibration;
 X1Plus.ShaperCalibration = X1PlusShaperCalibration;
 var ShaperCalibration = X1PlusShaperCalibration;
+X1Plus.TempGraph = X1PlusTempGraph;
+var TempGraph = X1PlusTempGraph;
 
 Stats.X1Plus = X1Plus;
 DDS.X1Plus = X1Plus;
 BedMeshCalibration.X1Plus = X1Plus;
 ShaperCalibration.X1Plus = X1Plus;
+TempGraph.X1Plus = X1Plus;
 
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
@@ -125,4 +129,5 @@ function awaken(_DeviceManager, _PrintManager) {
 	X1Plus.PrintManager = _PrintManager;
 	BedMeshCalibration.awaken();
 	ShaperCalibration.awaken();
+	TempGraph.awaken();
 }
