@@ -68,23 +68,28 @@
  
      // https://www.cnblogs.com/linuxAndMcu/p/13667894.html
      EmbededInputPanel {
-@@ -179,7 +198,18 @@
+@@ -179,7 +198,22 @@
          id: printListener
      }
  
 -    SettingListener { id: screenSaver }
+-
 +    SettingListener {
-+        id: screenSaver
-+        onSleepChanged: {
-+            if (!sleep) {
-+                updateBacklight();
-+            }
-+            if (sleep) {
-+                screenLock.didSleep();
++    id: screenSaver
++        Timer { 
++            id: debounceTimer
++            interval: 250 //ms
++            onTriggered: {
++                if (screenSaver.sleep) {
++                    screenLock.didSleep();
++                } else {
++                    updateBacklight();
++                }
 +            }
 +        }
++    onSleepChanged: {
++        debounceTimer.restart();
 +    }
-+    
- 
++}
      FactoryLoader {}
  }

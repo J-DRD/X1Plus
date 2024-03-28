@@ -25,11 +25,6 @@ Rectangle {
     
     property var customText: null
 
-    Binding on passcode { //possibly a redundant property
-        value: numberPad.number
-        when: numberPad.target == lockText
-    }
-
     ZRoundedImage {
         id: lockimg
         width:1180
@@ -92,6 +87,8 @@ Rectangle {
                     locked = false;
                 }
             }
+            focus: false;
+            parent.focus = true;
             ersatzDialogStack.pop();
         }
     }
@@ -109,7 +106,7 @@ Rectangle {
             
         Text {
             id: lockText
-            Layout.preferredHeight: 150 // Adjust as needed
+            Layout.preferredHeight: 150
             Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
             Layout.topMargin: 100
             font: Fonts.head_44
@@ -184,6 +181,7 @@ Rectangle {
                             if (thumb.x == xAxis.maximum) {
                                 if (locktype == 1 || passcode == "") {
                                     locked = false;
+                                   
                                 } else {
                                     popNumberPad();
                                 }
