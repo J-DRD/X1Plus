@@ -65,14 +65,14 @@ function start(low, high) {
     _timeoutTimer.interval = TIMEOUT_FIRST_POINT_MS;
     _timeoutTimer.restart();
     _isFinishing = false;
-
-    var gcode = X1Plus.GcodeGenerator.macros_vibrationCompensation(low, high, 0 /* nozzle temp */, 0 /* bed temp */);
+    var gcodeLibrary = X1Plus.GcodeGenerator.GcodeLibrary;
+    const vibrationGcode = X1Plus.GcodeGenerator.compileGcode(gcodeLibrary.calibration.Vibration(low,high, 0 /* nozzle temp */, 0 /* bed temp */));
     if (X1Plus.emulating) {
         console.log("Would send gcode:");
-        console.log(gcode);
+        console.log(vibrationGcode);
         _startSynthetic();
     } else {
-        X1Plus.sendGcode(gcode);
+        X1Plus.sendGcode(vibrationGcode);
     }
 }
 

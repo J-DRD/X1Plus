@@ -1,17 +1,13 @@
-const MACROS = {
-    VIBRATION_COMP: 0,
-    BED_LEVEL: 1,
-    NOZZLE_CAM_PREVIEW: 2,
-    TRAMMING: 3
-};
+.pragma library
+.import DdsListener 1.0 as JSDdsListener
+.import X1PlusNative 1.0 as JSX1PlusNative
+.import "Binding.js" as Binding
 
-const TRAMMING_STEP = {
-    EXIT: 0,
-    PREPARE: 1,
-    REAR_CENTER: 2,
-    FRONT_LEFT: 3,
-    FRONT_RIGHT: 4
-};
+var X1Plus = null;
+
+var _DdsListener = JSDdsListener.DdsListener;
+var _X1PlusNative = JSX1PlusNative.X1PlusNative;
+``
 
 const OV2740 = {
     OFF: 0,
@@ -55,107 +51,6 @@ function createGcode(command, params = {}) {
     }
     return `${gcode}\n`;
 }
-function macros_nozzlecam() {
-    let gcode = G28(0);
-    gcode += G0({x: 240, y: 90, z: 8, accel: 1200});
-    gcode += M960(LEDS.LED_NOZZLE, 1);
-    gcode += M973(OV2740.ON);
-    gcode += M973(OV2740.AUTOEXPOSE);
-    gcode += 'M400 P100 \n';
-    gcode += M973(OV2740.CAPTURE, 1, 1);
-    gcode += M960(LEDS.LED_NOZZLE, 0);
-    gcode += M973(OV2740.OFF);
-    return gcode;
-}
-function macros_tramming(step) {
-    let gcode = M1002({action_code:254,action:0});
-    switch (step) {
-        case TRAMMING_STEP.EXIT:
-            gcode += G1({x: 128, y: 128, z: 1});
-            gcode += M400(0);
-            break;
-        case TRAMMING_STEP.PREPARE:
-            gcode += M17(1.2, 1.2, 0.75);
-            gcode += G90();
-            gcode += M83();
-            gcode += G28(0);
-            gcode += G1({x: 128, y: 128, z: 1});
-            gcode += G292(0);
-            break;
-        case TRAMMING_STEP.REAR_CENTER:
-            gcode += G1({x: 134.8, y: 242.8, z: 0.4, accel: 3600});
-            gcode += M400(0);
-            break;
-        case TRAMMING_STEP.FRONT_LEFT:
-            gcode += G1({x: 33.2, y: 13.2, z: 0.4, accel: 3600});
-            gcode += M400(0);
-            break;
-        case TRAMMING_STEP.FRONT_RIGHT:
-            gcode += G1({x: 222.8, y: 13.2, z: 0.4, accel: 3600});
-            gcode += M400(0);
-            break;
-    }
-    gcode += M1002({action_code:1,action:0});
-    return gcode;
-}
-function macros_vibrationCompensation(f1,f3,nozzleTemp,bedTemp) {
-    let f2 = Math.floor((f3-f1)*0.5); //midpoint
-    
-    let header = M1002({action_code:13,action:0});
-    let footer = M1002({action_code:0,action:0});
-    if (nozzleTemp>0 && nozzleTemp <= 300){
-        header += M109(nozzleTemp);
-        footer += M109(0);
-    }
-    if (bedTemp>0 && bedTemp <= 300){
-        header += M140(bedTemp,true);
-        footer += zzzM140(0,false);
-    }
-
-    let gcode = M73(0,3); // update timeline
-    gcode += M201(100); // set Z max accel
-    gcode += G90(); // absolute coords
-    gcode += M400(1); // pause
-    gcode += M17(1.2, 1.2, 0.75); // stepper current Z=0.75
-    gcode += M201(1000); // set Z max accel
-    gcode += G28(HOMING.XYZ); // home
-    gcode += G92_1(); // unknown Bambu shaper code
-    gcode += G0({x: 128, y: 128, z: 5, accel: 2400}); // move
-    gcode += header;
-    gcode += M400(1) // pause
-
-    //SWEEP
-
-    gcode += M1002({action_code:3,action:0});
-    gcode += M970({axis: 1, a: 7, f_low: f1    , f_high: f2, k: 0}); // do the sweep
-    gcode += M73(25,3);
-    gcode += M970({axis: 1, a: 7, f_low: f2 + 1, f_high: f3, k: 1});
-    gcode += M73(50,2);
-    gcode += M974(1);
-    gcode += M970({axis: 0, a: 9, f_low: f1    , f_high: f2, h: 20, k: 0});
-    gcode += M73(75,1);
-    gcode += M970({axis: 0, a: 9, f_low: f2 + 1, f_high: f3, k: 1});
-    gcode += M73(100,0);
-    gcode += M974(0);
-    gcode += M500(); // save settings
-    gcode += M975(true); // enable shaper
-    
-    gcode += footer;
-    gcode += G0({x: 65, y: 260, z: 10, accel: 1800});
-
-    gcode += M400(1);
-    return gcode;
-}
-function macros_ABL() {
-    let gcode = M1002({action_code:0,action:1});
-    gcode += M622(1);
-    gcode += M1002({action_code:1,action:0});
-    gcode += G29();
-    gcode += M400(0);
-    gcode += M500();
-    gcode += M623();
-    return gcode;
-}
 
 
 /* update timeline */
@@ -197,19 +92,23 @@ function G91() {
     return "G91\n";
 }
 
-/* unknown: used in Bambu shaper calibration */
-function G92_1() {
-    return "G92.1\n";
+
+/* heat bed + wait */
+function M140(temp) {
+    return this.createGcode('M140', {S: temp});
 }
 
 /* heat bed */
-function M140(temp, wait = false) {
-    return wait ? this.createGcode('M140', {S: temp}) + this.createGcode('M190', {S: temp}) : this.createGcode('M140', {S: temp});
-}
+function M190(temp) {
+    return this.createGcode('M190', {S: temp});}
 
-/* heat nozzle */
+/* heat nozzle + wait */
 function M109(temp) {
     return this.createGcode('M109', {S: temp});
+}
+/* heat nozzle */
+function M104(temp) {
+    return this.createGcode('M104', {S: temp});
 }
 
 /* save settings */
@@ -233,13 +132,18 @@ function M900(k, l, m) {
     return this.createGcode('M900', {K: k, L: l, M: m});
 }
 
-/* print speed level */
-function M1009(level) {
-    const p1 = [0.3, 1, 1.4, 1.6];
-    const p2 = [0.7, 1, 1.4, 2.0];
-    const p3 = [2, 1, 0.8, 0.6];
-    return `M1009 L1 O1 M204.2 K${p1[level - 4]} M220 K${p2[level - 4]} M73.2 R${p3[level - 4]} M1002 ${level}\n`;
+/* print speed level: Silent = 0.3, normal = 1.0, sport = 1.4, luda = 1.6 */
+function M2042(a) {
+    // const m204_values = [0.3, 1, 1.4, 1.6];
+    // const m220_values = [0.7, 1, 1.4, 2.0];
+    // const m73_values = [2, 1, 0.8, 0.6];
+    //feed rate vs. acc mag = 2.1645*a^3 -5.3247*a^2  + 4.342*a-0.1818
+    let feed_rate = 2.1645*a**3 + -5.3247*a**2 + 4.342*a +  -0.1818;
+    let m73_R = -0.814*Math.log(a) + 1.0191;
+    let lvl =1.549*a**2 + -0.7032*a + 4.0834;
+    return `M204.2 K${a} \nM220 K${Math.round(feed_rate,2)} \nM73.2 R${Math.round(m73_R,1)} \nM1002 set_gcode_claim_speed_level ${Math.round(lvl,0)}\n`;
 }
+
 /* motion control */
 function G0({ x = '', y = '', z = '', accel = '' }) {
     return this.createGcode('G0', { X: x, Y: y, Z: z, F: accel });
@@ -305,10 +209,6 @@ function M974(axis = 0)
     return `M974 Q${axis} S2 P0\n`;
 }
 
-function G292(enabled = 1) /* toggle abl */
-{
-    return `G29.2 S${enabled}\n`;
-}
 
 function M400(sec = 0) /* pause */
 {
@@ -330,7 +230,7 @@ function G4(sec = 90) /* pause */
     return gcode;
 }
 
-function M205({x , y , z , e })
+function M205({x , y , z , e }) /* set jerk limits */
 {
     return createGcode('M205', {X: x, Y: y, Z: z, E: e});
 }
@@ -339,25 +239,21 @@ function M9822() /* disable motor noise cancellation */
     return "M982.2 C0\n M982.2 C1\n";
 }
 
-function  M106(fan = FANS.PART_FAN, speed = 0) /* fan control */
+function  M106(type = FANS.PART_FAN, speed = 0) /* fan control */
 {
-    return `M106 P${fan} S${speed}\n`;
+    return `M106 P${type} S${speed}\n`;
 }
 
-function M220() /* reset flow rate */
+function M220() /* set feed rate (default = 100%) */
 {
     return `M220 S100\n`;
 }
 
-
-function M221({x = -1,y = -1,z = -1}) 
+function M221(s) /* set flow rate (default = 100%) */
 {
-    if (x == -1 && y == -1 && z == -1){
-        return "M221 S100\n"; /* reset flow rate */
-    } else {
-        return createGcode('M221', { X:x,Y:y,Z:z});/* jerk limits */
-    }
+    return `M221 S${s}\n`;
 }
+
 
 
 function M960({type, val}){ /* led controls */
@@ -395,8 +291,243 @@ function  M622(j){
 function  M623(){
     return 'M623\n';
 }
-function  M83(){
+function  M83(){ /* set extruder to relative */
     return 'M83\n';
+}
+function  M84(){ /* disable steppers */
+    return 'M84\n';
+}
+function M412(s){/* toggle filament runout detection */
+    return `M412 S${s}\n`;
+}
+function M302(p){/* enable cold extrusion  */
+    return `M302 S70 P${p}\n`;
+}
+
+function G291(z_trim) {/* set z offset */
+//z_trim = "{+0.00}"  or "{-0.04}" - string only!
+    return `G29.1 Z{${z_trim}}\n`;
+}
+
+function M2012() {/* reset acceleration multiplier*/
+    return `M201.2 K1.0\n`;
 }
 
 
+const GcodeLibrary = {
+    calibration: {
+        ABL: [
+            () => M1002({action_code: 0, action: 1}),
+            () => M622(1),
+            () => M1002({action_code: 1, action: 0}),
+            () => G29(),
+            () => M400(0),
+            () => M500(),
+            () => M623()
+        ],
+        Vibration: (freq1, freq2, nozzleTemp, bedTemp) => {
+            let gcode = [
+                () => M1002({action_code: 13, action: 0})
+            ];
+            let mid = Math.floor((freq2-freq1)*0.5);
+            if (nozzleTemp > 0) {gcode.push(() => M109(nozzleTemp))}
+            if (bedTemp > 0) { gcode.push(() => M140(bedTemp))}
+            gcode.push(
+                () =>  M73(0,3),
+                () =>  M201(100),
+                () =>  G90(),
+                () =>  M400(1),
+                () =>  M17(1.2, 1.2, 0.75),
+                () =>  G28(HOMING.XYZ),
+                () =>  G0({x: 128, y: 128, z: 5, accel: 2400}),
+                () =>  M201(1000),
+                () =>  M400(1),
+                () =>  M1002({action_code:3,action:0}),
+                () =>  M970({axis: 1, a: 7, f_low: freq1    , f_high: mid, k: 0}),
+                () =>  M73(25,3),
+                () =>  M970({axis: 1, a: 7, f_low: mid + 1, f_high: freq2, k: 1}),
+                () =>  M73(50,2),
+                () =>  M974(1),
+                () =>  M970({axis: 0, a: 9, f_low: freq1    , f_high: mid, h: 20, k: 0}),
+                () =>  M73(75,1),
+                () =>  M970({axis: 0, a: 9, f_low: mid + 1, f_high: freq2, k: 1}),
+                () =>  M73(100,0),
+                () =>  M974(0),
+                () =>  M500(),
+                () =>  M975(true),       
+                () =>  G0({x: 65, y: 260, z: 10, accel: 1800}),     
+                () =>  M400(1),
+                () =>  M140(0),
+                () =>  M109(0),
+                () => M1002({action_code: 0, action: 0})
+                ); 
+            return gcode         
+        },
+        Tramming:  {
+            exit:[
+                    () =>  M1002({action_code:254,action:0}),
+                    () =>  G1({x: 128, y: 128, z: 1}),
+                    () =>  M400(0),
+                    () =>  M1002({action_code:1,action:0})
+                ],
+            prepare:[
+                    () =>  M1002({action_code:254,action:0}),
+                    () =>  M17(1.2, 1.2, 0.75),
+                    () =>  G90(),
+                    () =>  M83(),
+                    () =>  G28(0),
+                    () =>  G1({x: 128, y: 128, z: 1}),
+                    () =>  G292(0),
+                    () =>  M1002({action_code:1,action:0})
+                ],
+            rear_center: [
+                    () =>  M1002({action_code:254,action:0}),
+                    () =>  G1({x: 134.8, y: 242.8, z: 0.4, accel: 3600}),
+                    () =>  M400(0),
+                    () =>  M1002({action_code:1,action:0})
+                ],
+            front_left: [
+                    () =>  M1002({action_code:254,action:0}),
+                    () =>  G1({x: 33.2, y: 13.2, z: 0.4, accel: 3600}),
+                    () =>  M400(0),
+                    () =>  M1002({action_code:1,action:0})
+                ],
+            front_right:[
+                    () =>  M1002({action_code:254,action:0}),
+                    () =>  G1({x: 222.8, y: 13.2, z: 0.4, accel: 3600}),
+                    () =>  M400(0),
+                    () =>  M1002({action_code:1,action:0})
+                ]
+        }
+        
+    },
+    macros: {
+        ColdPull: {
+            prepare: [
+                () => G28(),
+                () => M83(),
+                () => M302(1)
+            ],
+            load: [
+                () => G1({e:10,accel:100}),
+            ],
+            flush: (temp2,temp3) => [
+                () => G1({e:60,accel:100}),
+                () => M106(FANS.AUX_FAN,255),
+                () => M106(FANS.PART_FAN, 255),
+                () => M109(temp2),
+                () => G1({e:10,accel:100}),
+                () => M104(temp3)
+            ],
+            pulse: (n,m) => {
+                let gcode = [
+                    () => G1({e:1,accel:1200}),
+                    () => G1({e:-1,accel:1200}),
+                ]
+                var _gcode = [];
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < m; j++) {
+                        _gcode.push(gcode);
+                    }
+                    _gcode.push(()=>G4(1));
+                }
+            },
+            pull: (temp4) => [
+                () => G1({e:-100,accel:1200}),
+            ],
+            exit: [
+                () => M104(0),
+                () => M1002({action_code:0,action:0}),
+                () => M106(FANS.AUX_FAN, 0),
+                () => M106(FANS.PART_FAN, 0),
+                () => M84()
+            ]
+        },
+        Preheat:{
+            home: () => [
+                () => G28(HOMING.Z_LOW_PRECISION),
+                () => G0({z:5,accel:1200}),
+                
+            ],
+            on: (temp=100) => [
+                () => M140(temp),
+                () => M106(FANS.AUX_FAN,255),
+                () => M106(FANS.PART_FAN,255),
+                
+            ],
+            off: () => [
+                () => M140(0),
+                () => M106(FANS.AUX_FAN,0),
+                () => M106(FANS.PART_FAN,0),                
+            ]
+        },
+        SpeedAdjust: (start_speed,end_speed,n,t) => {
+            let gcode = [];
+            let step = (end_speed - start_speed) / (n - 1); 
+            for (let i = 0; i < n; i++) {
+                let current_speed = start_speed + (step * i);
+                gcode.push(M2042(current_speed));
+            }
+            return gcode;
+        }
+        
+    },
+    controls: {
+        leds: {
+            toggle: (led,status) => [
+                () => M960({type: led, val: status}),
+            ]
+        },
+
+        fans: {
+            toggle: (fan,speed) => [
+                () => M106({fan: fan, speed: speed}),
+            ]
+        },
+        heaters: {
+            bed: (temp, wait) => wait ? () =>  M140(temp) : () => M190(temp),
+            nozzle: (temp, wait) => wait ? () =>  M109(temp) : () => M104(temp),
+        },
+        settings:{
+            z_offset: (offset)=> G291(offset),
+            k_value: (k,l,m) => M900(k,l,m),
+            save: () => M500(),
+            ABL: (enabled) => G292(enabled)
+        },    
+        motion:{
+            move: (_x,_y,_z,_e,_accel) => (e !== '' && e > 0) ? () => G1({x:_x,y:_y,z:_z,e:_e, accel: _accel}) : () => G0({x: X, y: Y, z: Z, accel: Accel}),
+            disable_steppers: () => M84(),
+            reset_flow_rate: () => M220(),
+            jerk_limits: (_x,_y,_z,_e) => M205({x:_x,y:_y,z:_z,e:_e}),
+            moveTo: {
+                done: (_accel=1200)=> G0({x: 65,y:260,z:10, accel:_accel}),
+                center: (_accel=1200)=> G0({x: 128,y:128,z:5, accel:_accel}),
+                chessboard: (_accel=1200)=> G0({x: 240,y:90,z:8, accel:_accel}),
+            }
+        },
+        extruder:{
+            extrude: (_e, _accel) => G1({e: _e, accel:_accel}),
+            cold_extrusion: (enabled) => M302(enabled),
+            runout_detection: (enabled) => M412(enabled),
+            relative_extrusion: () => M83()
+        }
+    
+    }
+};
+
+function compileGcode(commands) {
+    return commands.map(command => command()).join('');
+}
+//USAGE:
+//var GcodeLibrary = X1Plus.GcodeGenerator;
+//var commands = GcodeLibrary.Commands;
+//const trammingGcode = GcodeLibrary.compileGcode(commands.calibration.Tramming.exit);
+
+// ()=> G28(0),
+// () => G0({x: 240, y: 90, z: 8, accel: 1200}),
+// () => M960(LEDS.LED_NOZZLE, 1),
+// () => M973(OV2740.ON),
+// () => M973(OV2740.AUTOEXPOSE),
+// () => M973(OV2740.CAPTURE, 1, 1),
+// () => M960(LEDS.LED_NOZZLE, 0),
+// () => M973(OV2740.OFF),

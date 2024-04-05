@@ -5,6 +5,7 @@
 .import "./x1plus/Stats.js" as X1PlusStats
 .import "./x1plus/MeshCalcs.js" as X1PlusMeshCalcs
 .import "./x1plus/Binding.js" as X1PlusBinding
+// .import "./x1plus/Bindings.js" as X1PlusBindings
 .import "./x1plus/GpioKeys.js" as X1PlusGpioKeys
 .import "./x1plus/GcodeGenerator.js" as X1PlusGcodeGenerator
 .import "./x1plus/BedMeshCalibration.js" as X1PlusBedMeshCalibration
@@ -47,13 +48,17 @@ var BedMeshCalibration = X1PlusBedMeshCalibration;
 X1Plus.ShaperCalibration = X1PlusShaperCalibration;
 var ShaperCalibration = X1PlusShaperCalibration;
 X1Plus.GpioKeys = X1PlusGpioKeys;
-var GpioKeys  = X1PlusGpioKeys;
+var GpioKeys = X1PlusGpioKeys;
+// X1Plus.Bindings = X1PlusBindings;
+// var Bindings = X1PlusBindings;
 
 Stats.X1Plus = X1Plus;
 DDS.X1Plus = X1Plus;
 BedMeshCalibration.X1Plus = X1Plus;
 ShaperCalibration.X1Plus = X1Plus;
 GpioKeys.X1Plus = X1Plus;
+GcodeGenerator.X1Plus = X1Plus;
+// Bindings.X1Plus = X1Plus;
 
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
@@ -65,16 +70,6 @@ var printerConfigDir = null;
 var emulating = _X1PlusNative.getenv("EMULATION_WORKAROUNDS");
 X1Plus.emulating = emulating;
 
-
-function isIdle() {
-	return PrintManager.currentTask.stage < PrintTask.WORKING;
-}
-X1Plus.isIdle = isIdle;
-
-function hasSleep() {
-	return DeviceManager.power.hasSleep;
-}
-X1Plus.hasSleep = hasSleep;
 
 function loadJson(path) {
 	let xhr = new XMLHttpRequest();
@@ -97,32 +92,16 @@ function atomicSaveJson(path, json) {
 }
 X1Plus.atomicSaveJson = atomicSaveJson;
 
-function sendGcode(gcode_line){
+function sendGcode(gcode_line, seq_id=0){
 	var payload = {
 		command: "gcode_line",
 		param: gcode_line,
-		sequence_id: "420"
+		sequence_id: seq_id
 	};
 	DDS.publish("device/request/print", payload);
 	console.log("[x1p] Gcode published:", JSON.stringify(payload));
 }
 X1Plus.sendGcode = sendGcode;
-
-function GcodeMacros(macro, ...arr){
-	switch (macro) { 
-        case GcodeGenerator.MACROS.VIBRATION_COMP: 
-            return GcodeGenerator.macros_vibrationCompensation(...arr);
-        case GcodeGenerator.MACROS.BED_LEVEL:
-            return GcodeGenerator.macros_ABL();
-        case GcodeGenerator.MACROS.NOZZLE_CAM_PREVIEW:
-            return GcodeGenerator.macros_nozzlecam();
-        case GcodeGenerator.MACROS.TRAMMING:
-            return GcodeGenerator.macros_tramming(...arr);
-        default:
-            throw new Error("Invalid macro type");
-    }
-}
-X1Plus.GcodeMacros = GcodeMacros;
 
 function formatTime(time) {
 	return new Date(time * 1000).toLocaleString('en-US', {
@@ -157,4 +136,5 @@ function awaken(_DeviceManager, _PrintManager, _PrintTask) {
 	BedMeshCalibration.awaken();
 	ShaperCalibration.awaken();
 	GpioKeys.awaken();
+	// X1Plus.bindings();
 }
