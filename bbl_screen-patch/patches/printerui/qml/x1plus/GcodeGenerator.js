@@ -132,16 +132,32 @@ function M900(k, l, m) {
     return this.createGcode('M900', {K: k, L: l, M: m});
 }
 
-/* print speed level: Silent = 0.3, normal = 1.0, sport = 1.4, luda = 1.6 */
-function M2042(a) {
-    // const m204_values = [0.3, 1, 1.4, 1.6];
-    // const m220_values = [0.7, 1, 1.4, 2.0];
-    // const m73_values = [2, 1, 0.8, 0.6];
-    //feed rate vs. acc mag = 2.1645*a^3 -5.3247*a^2  + 4.342*a-0.1818
-    let feed_rate = 2.1645*a**3 + -5.3247*a**2 + 4.342*a +  -0.1818;
-    let m73_R = -0.814*Math.log(a) + 1.0191;
-    let lvl =1.549*a**2 + -0.7032*a + 4.0834;
-    return `M204.2 K${a} \nM220 K${Math.round(feed_rate,2)} \nM73.2 R${Math.round(m73_R,1)} \nM1002 set_gcode_claim_speed_level ${Math.round(lvl,0)}\n`;
+/**
+ * Generates G-code based on the print speed level.
+ * 
+ * @param {number} speedPercentage The desired print speed as a percentage of the normal speed (100%).
+ *                                 Accepts: 50 (Silent), 100 (Normal), 125 (Sport), 166 (Luda).
+ * @returns {string} The G-code string to set print speed
+ */
+function M2042(speedPercentage = 100) {
+    // Convert percentage to a decimal for calculation
+    const speedFraction = 100 / speedPercentage;
+    
+    // Calculate acceleration magnitude from speed fraction based on log trendline
+    const accelerationMagnitude = Math.exp((speedFraction - 1.0191) / -0.814);
+    
+    // Interpolate feed rate from acceleration magnitude using a polynomial trendline
+    const feedRate = 2.1645 * accelerationMagnitude ** 3 - 5.3247 * accelerationMagnitude ** 2 + 4.342 * accelerationMagnitude - 0.1818;
+    
+    // level from acceleration magnitude (not necessary)
+    const level = 1.549 * accelerationMagnitude ** 2 - 0.7032 * accelerationMagnitude + 4.0834;
+    
+    return [
+        `M204.2 K${accelerationMagnitude.toFixed(2)}`,
+        `M220 K${feedRate.toFixed(2)}`,
+        `M73.2 R${speedFraction.toFixed(1)}`,
+        `M1002 set_gcode_claim_speed_level ${Math.round(level)}`
+    ].join(" \n") + "\n";
 }
 
 /* motion control */
