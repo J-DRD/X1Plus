@@ -5,8 +5,8 @@ QT5_INCL_PATH ?= /usr/include/x86_64-linux-gnu/qt5/
 TOOLCHAIN ?= arm-linux-gnueabihf-
 TARGET_CC ?= $(TOOLCHAIN)gcc
 LDFLAGS = -shared -ldl #-nolibc # Guh.  Otherwise we end up linking against libc and getting a versioned symbol of dlsym...
-CXXFLAGS = -fPIC -std=c++11
-CFLAGS = -fPIC
+CXXFLAGS = -fPIC -std=c++11 -Ivendor -O -mcpu=cortex-a7
+CFLAGS = -fPIC -Ivendor -O -mcpu=cortex-a7
 MODULES := kexec_ui.so printer_ui printer_ui.so printer_ui.so.xdelta uncurl.so evdev_fix.so base.ts
 
 .DELETE_ON_ERROR:
@@ -68,7 +68,7 @@ evdev_fix.so: evdev_fix.c
 	$(TARGET_CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
 %.so: %.ui.o interpose.cpp interpose.moc.h
-	$(TARGET_CC) -o $@ $< interpose.cpp $(CXXFLAGS) $(LDFLAGS) -I $(QT5_INCL_PATH)
+	$(TARGET_CC) -o $@ $< interpose.cpp $(CXXFLAGS) $(LDFLAGS) -I $(QT5_INCL_PATH) vendor/libvncserver.so.0.9.14
 
 %.moc.h: %.cpp
 	moc -I $(QT5_INCL_PATH) $< -o $@
