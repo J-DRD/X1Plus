@@ -68,7 +68,7 @@ evdev_fix.so: evdev_fix.c
 	$(TARGET_CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
 %.so: %.ui.o interpose.cpp interpose.moc.h
-	$(TARGET_CC) -o $@ $< interpose.cpp $(CXXFLAGS) $(LDFLAGS) -I $(QT5_INCL_PATH) vendor/libvncserver.so.0.9.14
+	$(TARGET_CC) -o $@ $< interpose.cpp $(CXXFLAGS) $(LDFLAGS) -I $(QT5_INCL_PATH) ../prebuilt/libvncserver.so.1
 
 %.moc.h: %.cpp
 	moc -I $(QT5_INCL_PATH) $< -o $@
