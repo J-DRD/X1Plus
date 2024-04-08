@@ -1,6 +1,40 @@
 --- printer_ui-orig/printerui/qml/printer/PrintListener.qml
 +++ printer_ui/printerui/qml/printer/PrintListener.qml
 @@ -48,6 +48,10 @@
+ import QtQuick 2.12
+ import Printer 1.0
+ Item {
+ 
+     property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
+     property var printState: PrintManager.currentTask.state
+-
++    property var layerNum: PrintManager.currentTask.layerNum
++    property var totalLayer: X1Plus.Bindings.totalLayerNum()
++    
+     onPrintingChanged: {
+-        DeviceManager.power.externalWakeup()
++        X1Plus.Bindings.printStatusActions.updatePrintState();
++        DeviceManager.power.externalWakeup();
++    }
++    onLayerNumChanged: {
++        X1Plus.Bindings.layerActions.setCurrentLayer(layerNum);
++        X1Plus.Bindings.layerActions.setTotalLayer(layerNum);
++        let f = X1Plus.Bindings.speedRampStatus();
++        if (f !== []){
++            console.log(f);
++        }
+     }
+ 
+     Shortcut {
+@@ -32,6 +43,7 @@
+         target: PrintManager
+         ignoreUnknownSignals: false
+         onNotify: {
++            console.log(type,name,msg);
+             if (type === PrintManager.Finish || type === PrintManager.Failed) {
+                 if (name == "print" && (printState == PrintTask.FINISH || printState == PrintTask.FAILED)) {
+                     dialogStack.popupDialog("PrintFinish", { errorMsg: msg, name: name })
+@@ -48,6 +60,10 @@
                  }
              }
  

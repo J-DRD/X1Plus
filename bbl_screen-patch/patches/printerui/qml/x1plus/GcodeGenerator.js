@@ -7,7 +7,6 @@ var X1Plus = null;
 
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
-``
 
 const OV2740 = {
     OFF: 0,
@@ -140,22 +139,27 @@ function M900(k, l, m) {
  * @returns {string} The G-code string to set print speed
  */
 function M2042(speedPercentage = 100) {
+
+function M2042(speedPercentage) {
+    if (speedPercentage <35 || speedPercentage > 175){
+        speedPercentage = 100;
+    }
     // Convert percentage to a decimal for calculation
-    const speedFraction = 100 / speedPercentage;
+    var speedFraction = 100 / speedPercentage;
     
     // Calculate acceleration magnitude from speed fraction based on log trendline
-    const accelerationMagnitude = Math.exp((speedFraction - 1.0191) / -0.814);
+    var accelerationMagnitude = Math.exp((speedFraction - 1.0191) / -0.814);
     
     // Interpolate feed rate from acceleration magnitude using a polynomial trendline
-    const feedRate = 2.1645 * accelerationMagnitude ** 3 - 5.3247 * accelerationMagnitude ** 2 + 4.342 * accelerationMagnitude - 0.1818;
+    var feedRate = 2.1645 * accelerationMagnitude ** 3 - 5.3247 * accelerationMagnitude ** 2 + 4.342 * accelerationMagnitude - 0.1818;
     
     // level from acceleration magnitude (not necessary)
-    const level = 1.549 * accelerationMagnitude ** 2 - 0.7032 * accelerationMagnitude + 4.0834;
+    var level = 1.549 * accelerationMagnitude ** 2 - 0.7032 * accelerationMagnitude + 4.0834;
     
     return [
         `M204.2 K${accelerationMagnitude.toFixed(2)}`,
         `M220 K${feedRate.toFixed(2)}`,
-        `M73.2 R${speedFraction.toFixed(1)}`,
+        `M73.2 R${speedFraction.toFixed(2)}`,
         `M1002 set_gcode_claim_speed_level ${Math.round(level)}`
     ].join(" \n") + "\n";
 }
@@ -477,10 +481,10 @@ const GcodeLibrary = {
                 () => M106(FANS.PART_FAN,0),                
             ]
         },
-        SpeedAdjust: (start_speed,end_speed,n,t) => {
+        rampSpeedLevel: (start_speed,end_speed,steps) => {
             let gcode = [];
-            let step = (end_speed - start_speed) / (n - 1); 
-            for (let i = 0; i < n; i++) {
+            let step = (end_speed - start_speed) / (steps - 1); 
+            for (let i = 0; i < steps; i++) {
                 let current_speed = start_speed + (step * i);
                 gcode.push(M2042(current_speed));
             }

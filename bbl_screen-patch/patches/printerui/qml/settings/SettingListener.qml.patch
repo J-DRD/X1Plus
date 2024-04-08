@@ -130,6 +130,11 @@
                              versionNotify = false
                          }
 @@ -98,6 +166,7 @@
+         if (printIdle)
+             updateNotifyTimer.start()
++        X1Plus.Bindings.printStatusActions.updateIdle();
+     }
+     /* Power */
      property var power: DeviceManager.power
      property bool sleep: power.hasSleep
      property bool aboutToSleep: power.aboutToSleep
@@ -138,6 +143,18 @@
      anchors.fill: parent
      color: sleep ? (blackColor ? Colors.gray_800 : "#EFEFEF") : "#80000000"
 @@ -165,7 +234,7 @@
+         console.log("onAboutToSleepChanged " + aboutToSleep)
++        X1Plus.Bindings.deviceActions.updateSleep();
+         if (aboutToSleep)
+             visible = true
+     }
+ 
+     onSleepChanged: {
+         console.log("onSleepChanged " + sleep)
++        X1Plus.Bindings.deviceActions.updateSleep();
+         if (sleep) {
+             visible = true
+         } else {
              blackColor = !blackColor
          }
      }

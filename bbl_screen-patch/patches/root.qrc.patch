@@ -110,6 +110,7 @@
 +<file>printerui/qml/X1PBackButton.qml</file>
 +<file>printerui/qml/x1plus/BedMeshCalibration.js</file>
 +<file>printerui/qml/x1plus/Binding.js</file>
++<file>printerui/qml/x1plus/Bindings.js</file>
 +<file>printerui/qml/x1plus/Bindable.qml</file>
 +<file>printerui/qml/x1plus/DDS.js</file>
 +<file>printerui/qml/x1plus/GcodeGenerator.js</file>

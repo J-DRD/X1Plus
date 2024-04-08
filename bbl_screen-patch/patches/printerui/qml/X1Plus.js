@@ -5,7 +5,7 @@
 .import "./x1plus/Stats.js" as X1PlusStats
 .import "./x1plus/MeshCalcs.js" as X1PlusMeshCalcs
 .import "./x1plus/Binding.js" as X1PlusBinding
-// .import "./x1plus/Bindings.js" as X1PlusBindings
+.import "./x1plus/Bindings.js" as X1PlusBindings
 .import "./x1plus/GpioKeys.js" as X1PlusGpioKeys
 .import "./x1plus/GcodeGenerator.js" as X1PlusGcodeGenerator
 .import "./x1plus/BedMeshCalibration.js" as X1PlusBedMeshCalibration
@@ -49,8 +49,8 @@ X1Plus.ShaperCalibration = X1PlusShaperCalibration;
 var ShaperCalibration = X1PlusShaperCalibration;
 X1Plus.GpioKeys = X1PlusGpioKeys;
 var GpioKeys = X1PlusGpioKeys;
-// X1Plus.Bindings = X1PlusBindings;
-// var Bindings = X1PlusBindings;
+X1Plus.Bindings = X1PlusBindings;
+var Bindings = X1PlusBindings;
 
 Stats.X1Plus = X1Plus;
 DDS.X1Plus = X1Plus;
@@ -58,7 +58,7 @@ BedMeshCalibration.X1Plus = X1Plus;
 ShaperCalibration.X1Plus = X1Plus;
 GpioKeys.X1Plus = X1Plus;
 GcodeGenerator.X1Plus = X1Plus;
-// Bindings.X1Plus = X1Plus;
+Bindings.X1Plus = X1Plus;
 
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
@@ -136,5 +136,4 @@ function awaken(_DeviceManager, _PrintManager, _PrintTask) {
 	BedMeshCalibration.awaken();
 	ShaperCalibration.awaken();
 	GpioKeys.awaken();
-	// X1Plus.bindings();
 }
