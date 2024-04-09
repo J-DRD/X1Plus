@@ -30,8 +30,8 @@
          }
          Component.onCompleted: {
              activePage = "Home"
-+            X1Plus.Bindings.LED.backlight(100);
-+            X1Plus.Bindings.LED.toolhead(0);
++            X1Plus.Bindings.LED.backlight();
++            X1Plus.Bindings.LED.toolhead();
          }
  
          Timer {
@@ -64,7 +64,7 @@
 +        id: screenSaver
 +        onSleepChanged: {
 +            if (!sleep) {
-+                X1Plus.Bindings.LED.backlight(100);
++                X1Plus.Bindings.LED.backlight();
 +            }
 +            if (sleep) {
 +                screenLock.didSleep();
