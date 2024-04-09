@@ -131,6 +131,12 @@ function M900(k, l, m) {
     return this.createGcode('M900', {K: k, L: l, M: m});
 }
 
+var speed_interp = {
+    speed_fraction: (speedPercentage) => { return Math.floor(10000/speedPercentage)/100},
+    acceleration_magnitude: (speedFraction) => {return Math.exp((speedFraction - 1.0191) / -0.814)},
+    feed_rate: (speedPercentage) => {return (0.00006426)*speedPercentage ** 2 + (-0.002484)*speedPercentage + 0.654},
+    level: (accelerationMagnitude) => {return (1.549 * accelerationMagnitude ** 2 - 0.7032 * accelerationMagnitude + 4.0834)}
+}
 /**
  * Generates G-code based on the print speed level.
  * 
@@ -143,16 +149,15 @@ function M2042(speedPercentage) {
         speedPercentage = 100;
     }
     // Convert percentage to a fraction, use Math.floor() to keep our target % the same as Bambu's reported %
-    var speedFraction = Math.floor(10000 / speedPercentage)/100;
+    var speedFraction = speed_interp.speed_fraction(speedPercentage);
     
     // Calculate acceleration magnitude from speed fraction based on log trendline
-    var accelerationMagnitude = Math.exp((speedFraction - 1.0191) / -0.814);
+    var accelerationMagnitude = speed_interp.acceleration_magnitude(speedFraction);
     
-    // Interpolate feed rate from acceleration magnitude using a polynomial trendline
-    var feedRate = 2.1645 * accelerationMagnitude ** 3 - 5.3247 * accelerationMagnitude ** 2 + 4.342 * accelerationMagnitude - 0.1818;
-    
+    // Interpolate feed rate from R
+    var feedRate = speed_interp.feed_rate(speedPercentage);
     // level from acceleration magnitude (not necessary)
-    var level = 1.549 * accelerationMagnitude ** 2 - 0.7032 * accelerationMagnitude + 4.0834;
+    var level = speed_interp.level(accelerationMagnitude);
     
     return [
         `M204.2 K${accelerationMagnitude.toFixed(2)}`,
