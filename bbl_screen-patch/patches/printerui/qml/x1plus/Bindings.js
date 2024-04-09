@@ -137,11 +137,11 @@ var [isHomed, isHomedChanged, _setIsHomed] = Binding.makeBinding(false);
 
 var deviceActions = {
     updateSleep: () => {
-        _setAboutToSleep(X1Plus.DeviceManager.power.hasSleep);
-        _setSleep(X1Plus.DeviceManager.power.aboutToSleep);
+        _setSleep(X1Plus.DeviceManager.power.hasSleep);
+        _setAboutToSleep(X1Plus.DeviceManager.power.aboutToSleep);
     },
     updateisHomed: () => {
-        _setIsHomed((X1Plus.PrintManager.homedState & X1Plus.PrintManager.AXIS_HOMED_ALL) !== X1Plus.PrintManager.AXIS_HOMED_ALL);
+        _setIsHomed((X1Plus.PrintManager.homedState & X1Plus.PrintManager.AXIS_HOMED_ALL) === X1Plus.PrintManager.AXIS_HOMED_ALL);
     }
 };
 

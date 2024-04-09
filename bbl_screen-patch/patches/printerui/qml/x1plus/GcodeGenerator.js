@@ -272,7 +272,7 @@ function M221(s) /* set flow rate (default = 100%) */
     return `M221 S${s}\n`;
 }
 
-var M960 = {
+var M960 = { /* LED controls */
     laser_vertical: (val) => {
         return `M960 S1 P${val}\n`;
     },
@@ -290,22 +290,24 @@ var M960 = {
     }  
 }
 
-function M973({action, num = 1, expose = 0}) { /* nozzle camera stream */
-    switch (action) {
-        case OV2740.OFF:
-            return "M973 S4\n";
-        case OV2740.ON:
-            return "M973 S3 P1\n";
-        case OV2740.AUTOEXPOSE:
-            return "M973 S1\n";
-        case OV2740.EXPOSE:
-            return `M973 S${num} P${expose}\n`; // Example: M973 S2 P600
-        case OV2740.CAPTURE:
-            return `M971 S${num} P${expose}\n`;
-        default:
-            return "M973 S4\n";
-    }
+var M973 = {/* nozzle camera controls */
+    off: () => {
+        return `M973 S4\n`;
+    },
+    on: () => {
+        return `M973 S3 P1\n`;
+    },
+    autoexpose: () => {
+        return `M973 S1\n`;
+    },
+    expose: (image,val) => {
+        return `M973 S${image} P${val}\n`
+    },
+    capture: (image,val) => {
+        return `M971 S${image} P${val}\n`;
+    }  
 }
+
 function M201(z){
     return `M201 Z${z}\n`;
 }
@@ -499,6 +501,7 @@ const GcodeLibrary = {
     controls: {
         settings:{
             z_offset: (offset)=> G291(offset),
+            z_offset_default: () => G291("+0.00"),
             k_value: (k,l,m) => M900(k,l,m),
             save: () => M500(),
             ABL: (enabled) => G292(enabled)
@@ -512,7 +515,10 @@ const GcodeLibrary = {
                 done: (_accel=1200)=> G0({x: 65,y:260,z:10, accel:_accel}),
                 center: (_accel=1200)=> G0({x: 128,y:128,z:5, accel:_accel}),
                 chessboard: (_accel=1200)=> G0({x: 240,y:90,z:8, accel:_accel}),
-            }
+            },
+            default_stepper_current: () => M17({x:1.2,y:1.2,z:0.75}),
+            relative: () => G91(),
+            absolute: () => G90(),
         },
         extruder:{
             extrude: (_e, _accel) => G1({e: _e, accel:_accel}),
@@ -520,7 +526,6 @@ const GcodeLibrary = {
             runout_detection: (enabled) => M412(enabled),
             relative_extrusion: () => M83()
         }
-    
     }
 };
 
