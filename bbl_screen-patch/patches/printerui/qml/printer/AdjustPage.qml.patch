@@ -41,12 +41,12 @@
 +                //     "currentIndex": speedPad.speedMode,
 +                //     "currentItemText": PrintManager.currentTask.printSpeedModeStrings[speedPad.speedMode]
 +                // }
-+                // PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
++                PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
 +                X1Plus.Bindings.printStatusActions.setPrintSpeedGcode(targetSpeed);
                  speedPad_close();
              }
              fanPad.target = null
-@@ -384,63 +390,318 @@
+@@ -384,63 +390,321 @@
  
      Rectangle {
          id: speedPad
@@ -73,21 +73,25 @@
 -        onSpeedModeChanged: {
 -            if (target != null) {
 -                PrintManager.currentTask.printSpeedMode = speedMode
+-            }
 +        property alias speed: slider.value
 +        
 +        onSpeedChanged:{
++            if (speed < 30 || speed > 180){
++                speed = 100;
++            }
 +            targetSpeed = speed;
 +        }
 +        onTargetChanged:{
 +            if (target!=null){
 +                speed = targetSpeed;
-             }
-         }
--
++            }
++        }
 +        function calculateYPosition(value) {
 +            var relativePosition = (value - slider.from) / (slider.to - slider.from);
 +            return slider.handle.height / 2 + (slider.height - slider.handle.height) * (1 - relativePosition);
-+        }
+         }
+-
          Rectangle {
              width: 540
              height: 591
@@ -406,7 +410,7 @@
              }
          }
      }
-@@ -498,7 +759,7 @@
+@@ -498,7 +762,7 @@
              EventTrack.itemName: "tempAndSpeed_" + modelData.name
  
              Binding on text {
