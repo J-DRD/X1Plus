@@ -1,6 +1,6 @@
 --- printer_ui-orig/printerui/qml/printer/AdjustPage.qml
 +++ printer_ui/printerui/qml/printer/AdjustPage.qml
-@@ -205,9 +205,6 @@
+@@ -1,17 +1,21 @@
  import QtQuick 2.12
  import QtQuick.Shapes 1.12
 -
@@ -14,82 +14,18 @@
 +import "../X1Plus.js" as X1Plus
  
  Item {
- 
+-
      property var heaters: PrintManager.heaters
      property var axisController: PrintManager.axisController
 -
 +    property var speedValues: [50,100,125,175]
 +    property var targetSpeed:100
 +    property var curSpeed: X1Plus.Bindings.printSpeed()
++    
      property var speedAdjust: QtObject {
          property string name: "speed"
          property int currentTemp: PrintManager.currentTask.printSpeed
-@@ -148,18 +154,29 @@
-                 model: xyAsixModel
-                 delegate: axisComp
-             }
--            ZButton {
-+            Rectangle {
-                 id: axisHome
-                 width: 103
-                 height: 103
-+                radius:44
-+                color: "#626260"//Colors.gray_400
-                 anchors.centerIn: parent
--                type: ZButtonAppearance.Tertiary
--                radius: 44
--                iconSize: 0
--                icon: "../../icon/vector.svg"
--                onClicked: {
--                    axisController.moveCenter(PrintManager.currentTask.stage === PrintTask.PAUSED)
-+            
-+                ZImage {
-+                    id: axisHomeImage
-+                    width: 103
-+                    height: 103
-+                    fillMode: Image.Pad
-+                    originSource: "../../icon/vector.svg"
-+                    tintColor: (PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) !== PrintManager.AXIS_HOMED_ALL ? "#eb6600" : Colors.brand
-+                }
-+                MouseArea {
-+                    anchors.fill:parent
-+                    onClicked: {
-+                        axisController.moveCenter(PrintManager.currentTask.stage === PrintTask.PAUSED)
-+                    }
-+                    onEntered: axisHome.opacity = 0.8
-+                    onExited: axisHome.opacity = 1.0
-                 }
-             }
-         }
-@@ -171,11 +188,6 @@
-             width: 108
-             height: 129 * 4 + 12
- 
--            Component.onCompleted: {
--                X1Plus.homed = Qt.binding(function() { return PrintManager.AXIS_HOMED_ALL; });
--                X1Plus.homed2 = Qt.binding(function() { return PrintManager.homedState; });
--                X1Plus.speed = Qt.binding(function() { return PrintManager.currentTask.printSpeedMode; });
--            }
-             ZText {
-                 anchors.bottom: parent.top
-                 anchors.bottomMargin: 8
-                     }
- 
-                     onClicked: {
--                        if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) !== PrintManager.AXIS_HOMED_ALL) {
--                            limitFrame()
--                        }
-                         axisController.moveAxis(modelData.axis, modelData.dir, modelData.unit)
-                     }
- 
-@@ -800,9 +797,6 @@
-     MouseArea {
-         anchors.fill: parent
--        visible: speedPad.visible || fanPad.visible
-+        visible: fanPad.visible || speedPad.visible
-         onPressed: {
-             mouse.accepted = true
-         }
+@@ -369,12 +373,14 @@
              if(speedPad.target) {
                  speedPad.target = null
                  // here only when close "speedPad" then upload once the event track msg of "speedMode"
@@ -99,58 +35,31 @@
 -                    "currentIndex": speedPad.speedMode,
 -                    "currentItemText": PrintManager.currentTask.printSpeedModeStrings[speedPad.speedMode]
 -                }
-+               
 +                // EventTrack.itemName = "speedAdjust"
 +                // EventTrack.extraInfo = {
 +                //     "control": "Choise",
 +                //     "currentIndex": speedPad.speedMode,
 +                //     "currentItemText": PrintManager.currentTask.printSpeedModeStrings[speedPad.speedMode]
 +                // }
-+                //targetSpeed = speedPad.slider.value;
-+                console.log(targetSpeed);
-+                PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
++                // PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
 +                X1Plus.Bindings.printStatusActions.setPrintSpeedGcode(targetSpeed);
                  speedPad_close();
              }
              fanPad.target = null
-         }
-     }
+@@ -384,63 +390,318 @@
  
-+Rectangle {
-+    id: speedPad
-+    width: 540
-+    height: 591
-+    color:"#B20D0F0D"
-+    visible: target != null
-+    anchors.fill: axisPanel
-+    
-+    property var target: null
-+    property alias speed: slider.value
-+    
-+    onSpeedChanged:{
-+        targetSpeed = speed;
-+    }
-+    onTargetChanged:{
-+        if (target!=null){
-+            speed = targetSpeed;
-+        }
-+    }
-+    function calculateYPosition(value) {
-+        var relativePosition = (value - slider.from) / (slider.to - slider.from);
-+        return slider.handle.height / 2 + (slider.height - slider.handle.height) * (1 - relativePosition);
-+    }
      Rectangle {
--        id: speedPad
+         id: speedPad
 -        anchors.fill: axisPanel
 -        color: "#B20D0F0D"
--        visible: target != null
 +        width: 540
 +        height: 591
-+        anchors.centerIn: parent
-+        radius: 15
-+        color: Colors.gray_600
- 
--        property var target: null
++        color:"#B20D0F0D"
+         visible: target != null
+-
++        anchors.fill: axisPanel
++        
+         property var target: null
 -        //property var speeds: [180, 140, 100, 60]
 -        //property int speed: speeds[speedMode]
 -        property string step: stepBar.steps[speedMode]
@@ -159,294 +68,46 @@
 -        onTargetChanged: {
 -            if (target != null)
 -                speedMode = PrintManager.currentTask.printSpeedMode
-+        MouseArea {
-+            anchors.fill: parent
-+            onPressed: mouse.accepted = true
-         }
-+        Text {
-+            id: title
-+            text: qsTr("Print Speed")
-+            font.pixelSize: 36
-+            color: "white"
-+            anchors.horizontalCenter: parent.horizontalCenter
-+            anchors.top: parent.top
-+            anchors.topMargin: 20
-+        }
-+        Slider {
-+            id: slider
-+            orientation: Qt.Vertical
-+            from: 35
-+            to: 175
-+            stepSize: 1
-+            value: speedPad.speed
-+            anchors.horizontalCenter: parent.horizontalCenter
-+            anchors.top: title.bottom
-+            anchors.topMargin: 35
-+            height: parent.height - 275
-+            width: 40
-+
-+            onValueChanged: {
-+                canvas.updateSpeedPositions();
-+                if (!slider.pressed) {
-+                    targetSpeed = value;
-+                    console.log(targetSpeed,PrintManager.currentTask.printSpeed);
-+                }
-+            }
-+            background: Rectangle {
-+                id: sliderBackground
-+                height: parent.height
-+                width: 40
-+                anchors.fill: slider
-+                color: "#000000" 
-+                radius: width/2
+-        }
+-
 -        onSpeedModeChanged: {
 -            if (target != null) {
 -                PrintManager.currentTask.printSpeedMode = speedMode
-+                Rectangle {
-+                    id: filledTrack
-+                    width: parent.width
-+                    height: (slider.height - handle.height/2) * ((slider.value - slider.from) / (slider.to - slider.from))+15
-+                    color: Colors.brand
-+                    radius:width/2
-+                    anchors.bottom: parent.bottom
-+                }
++        property alias speed: slider.value
++        
++        onSpeedChanged:{
++            targetSpeed = speed;
++        }
++        onTargetChanged:{
++            if (target!=null){
++                speed = targetSpeed;
              }
--        }
- 
-+            handle: Rectangle {
-+                
-+                id: handle
-+                y: (slider.height - height) * (1 - ((slider.value - slider.from) / (slider.to - slider.from)))
-+                implicitWidth: 56
-+                implicitHeight: 56
-+                color: slider.pressed ? "#f0f0f0" : "#f6f6f6"
-+                border.color: "black"
-+                anchors.horizontalCenter: parent.horizontalCenter
-+                radius: width / 2
-+            }
+         }
+-
++        function calculateYPosition(value) {
++            var relativePosition = (value - slider.from) / (slider.to - slider.from);
++            return slider.handle.height / 2 + (slider.height - slider.handle.height) * (1 - relativePosition);
 +        }
          Rectangle {
--            width: 540
--            height: 591
--            anchors.centerIn: parent
--            radius: 15
--            color: Colors.gray_600
-+            width: 60
-+            height: 60
-+            color: "transparent" 
-+            border.color: "white"
-+            radius: 20 
-+            anchors.right: slider.left
-+            anchors.rightMargin: 70
-+            anchors.verticalCenter: parent.verticalCenter
-+            Text {
-+                text: "±" + slider.stepSize + "%"
-+                anchors.centerIn: parent
-+                color: "white"
-+                font.pixelSize: 24
-+            }
- 
+             width: 540
+             height: 591
+             anchors.centerIn: parent
+             radius: 15
+             color: Colors.gray_600
+-
              MouseArea {
                  anchors.fill: parent
--                onPressed: mouse.accepted = true
-+                onClicked: {
-+                    slider.stepSize = slider.stepSize === 1 ? 5 : 1;
-+                }
+                 onPressed: mouse.accepted = true
              }
-+        }
-+        Text {
-+            id: layerLbl
-+            text: qsTr("Layer")
-+            color: "white"
-+            font.pixelSize: 18
-+            anchors.left: parent.left
-+            anchors.leftMargin: 20
-+            anchors.top: slider.top
-+            anchors.topMargin:40
-+        }
-+        Text {
-+            id: layernumlbl
-+            text: X1Plus.Bindings.layerNum()
-+            color: "white"
-+            font.pixelSize: 18
-+            anchors.left: parent.left
-+            anchors.leftMargin: 20
-+            anchors.top: layerLbl.bottom
-+            anchors.topMargin:25
-+        }
-+        Text {
-+            id: currentSpeedLabel
-+            text: qsTr("Current Speed")
-+            color: "white"
-+            font.pixelSize: 18
-+            anchors.right: parent.right
-+            anchors.rightMargin: 20
-+            anchors.top: slider.top
-+            anchors.topMargin:40
-+        }
- 
--            Text {
+-
+             Text {
 -                x: 50
 -                y: 18
 -                font: Fonts.body_30
 -                color: Colors.gray_300
 -                text: qsTr("Printing speed")
-+        Text {
-+            id: currentSpeedText
-+            text: curSpeed.toFixed(1) + "%"
-+            font.pixelSize: 24
-+            color: "white"
-+            anchors.top: currentSpeedLabel.bottom
-+            anchors.right: currentSpeedLabel.right
-+            anchors.topMargin: 5
-+        }
-+
-+        Text {
-+            id: targetSpeedLabel
-+            text: qsTr("Target Speed")
-+            color: "white"
-+            font.pixelSize: 18
-+            anchors.top: currentSpeedText.bottom
-+            anchors.right: currentSpeedText.right
-+            anchors.topMargin: 20
-+        }
-+
-+        Text {
-+            id: targetSpeedText
-+            text: targetSpeed.toFixed(1).toString() +"%"
-+            font.pixelSize: 24
-+            color: "white"
-+            anchors.top: targetSpeedLabel.bottom
-+            anchors.right: targetSpeedLabel.right
-+            anchors.topMargin: 5
-+        }
-+        Text {
-+            id: printEtaLabel
-+            text: qsTr("Print ETA")
-+            color: "white"
-+            font.pixelSize: 18
-+            anchors.top: targetSpeedText.bottom
-+            anchors.right: targetSpeedText.right
-+            anchors.topMargin: 20
-+        }
-+
-+        Text {
-+            id: printEtaText
-+            text: Printer.durationString(PrintManager.currentTask.remainTime)
-+            font.pixelSize: 24
-+            color: "white"
-+            anchors.top: printEtaLabel.bottom
-+            anchors.right: printEtaLabel.right
-+            anchors.topMargin: 5
-+        }
-+        Item {
-+            id: buttonsContainer
-+            width: parent.width
-+            height: 170
-+            anchors.horizontalCenter: parent.horizontalCenter
-+            anchors.top: slider.bottom
-+            anchors.topMargin: 30
-+            
-+            Row {
-+                spacing: 15 
-+                anchors.horizontalCenter: parent.horizontalCenter
-+                
-+                Rectangle {
-+                    id: rampButton
-+                    width: 145+70
-+                    height: 125
-+                    //color: "#00ad42"//"#eb6600"
-+                    color: Colors.gray_600
-+                    radius: 25
-+                    
-+
-+                    Text {
-+                        text: qsTr("Ramp")
-+                        anchors.centerIn: parent
-+                        color: "white"
-+                        font.pixelSize: 30
-+                        
-+                    }
-+
-+                    MouseArea {
-+                        anchors.fill: parent
-+                        onClicked: {
-+                            let gcode = X1Plus.GcodeGenerator.GcodeLibrary.macros.rampSpeedLevel(curSpeed,targetSpeed,10);
-+                            console.log(gcode);
-+                            X1Plus.Bindings.printStatusActions.updateRampStatus(layerNum,10,curSpeed,targetSpeed);
-+                        }
-+                        onEntered: parent.opacity = 0.8
-+                        onExited: parent.opacity = 1.0
-+                    }
-+                }
-+                Rectangle {
-+                    width: 1
-+                    height: 105*.85
-+                    anchors.verticalCenter: parent.verticalCenter
-+                }
-+                Rectangle {
-+                    id: applyButton
-+                    width: 145+70
-+                    height: 125
-+                    color: Colors.gray_600
-+                   // color: "#00ad42"//Colors.gray_300
-+                    //border.color: Colors.gray_100
-+                    radius: 25
-+
-+                    Text {
-+                        text: qsTr("Apply")
-+                        anchors.centerIn: parent
-+                        color: "white"
-+                        font.pixelSize: 30
-+                       
-+                    }
-+
-+                    MouseArea {
-+                        anchors.fill: parent
-+                        onClicked: {
-+                            X1Plus.Bindings.printStatusActions.setPrintSpeedGcode(speedPad.speed);
-+                            X1Plus.Bindings.printStatusActions.updatePrintSpeed();
-+                            speedPad.target = null;
-+                            
-+                        }
-+                        onEntered: parent.opacity = 0.8
-+                        onExited: parent.opacity = 1.0
-+                    }
-+                }
-+            }
-+        }
-+        Rectangle {
-+            id: labelRect
-+            color:"transparent"
-+            anchors.fill: slider
-+            Repeater {
-+                model: speedValues
-+                delegate: Text {
-+                    text: modelData + "%"
-+                    color: "white"
-+                    font.pixelSize: 24
-+                    anchors.right: labelRect.left
-+                    anchors.rightMargin: 10
-+                    horizontalAlignment: Text.AlignHCenter
-+                    verticalAlignment: Text.AlignVCenter
-+                    y : speedPad.calculateYPosition(modelData) - height / 2     
-+                }
-             }
-+            Canvas {
-+                id: canvas
-+                anchors.fill: parent
-+                property var speedPositions: []
-+
-+                function updateSpeedPositions() {
-+                    var newPositions = [];
-+                    for (var i = 0; i < speedValues.length; i++) {
-+                        var yPos = speedPad.calculateYPosition(speedValues[i]);
-+                        newPositions.push({ x: slider.width / 2, y: yPos });
-+                    }
-+                    speedPositions = newPositions;
-+                    requestPaint();
-+                }
- 
+-            }
+-
 -            ZStepBar {
 -                id: stepBar
 -                width: parent.width - 260
@@ -460,58 +121,292 @@
 -                titleColor: StateColor {
 -                    StateColorItem { color: "brand"; states: StateColor.Checked }
 -                    StateColorItem { color: "gray_200"; states: StateColor.Normal }
-+                onPaint: {
-+                    var ctx = getContext("2d");
-+                    ctx.clearRect(0, 0, width, height); 
++                id: title
++                text: qsTr("Print Speed")
++                font.pixelSize: 36
++                color: "white"
++                anchors.horizontalCenter: parent.horizontalCenter
++                anchors.top: parent.top
++                anchors.topMargin: 20
++            }
++            Slider {
++                id: slider
++                orientation: Qt.Vertical
++                from: 30
++                to: 180
++                stepSize: 2
++                value: speedPad.speed
++                anchors.horizontalCenter: parent.horizontalCenter
++                anchors.top: title.bottom
++                anchors.topMargin: 35
++                height: parent.height - 275
++                width: 40
++                onValueChanged: {
++                    canvas.updateSpeedPositions();
++                    if (!slider.pressed) {
++                        targetSpeed = value;
++                        console.log(targetSpeed,PrintManager.currentTask.printSpeed);
++                    }
++                }
++                background: Rectangle {
++                    id: sliderBackground
++                    height: parent.height
++                    width: 40
++                    anchors.fill: slider
++                    color: "#000000" 
++                    radius: width/2
++                    Rectangle {
++                        id: filledTrack
++                        width: parent.width
++                        height: (slider.height - handle.height/2) * ((slider.value - slider.from) / (slider.to - slider.from))+15
++                        color: Colors.brand
++                        radius:width/2
++                        anchors.bottom: parent.bottom
++                    }
++                } 
++                handle: Rectangle {
++                    
++                    id: handle
++                    y: (slider.height - height) * (1 - ((slider.value - slider.from) / (slider.to - slider.from)))
++                    implicitWidth: 56
++                    implicitHeight: 56
++                    color: slider.pressed ? "#f0f0f0" : "#f6f6f6"
++                    border.color: "black"
++                    anchors.horizontalCenter: parent.horizontalCenter
++                    radius: width / 2
++                }
++            }
++            Rectangle {
++                width: 60
++                height: 60
++                color: "transparent" 
++                border.color: "white"
++                radius: 20 
++                anchors.right: slider.left
++                anchors.rightMargin: 70
++                anchors.verticalCenter: parent.verticalCenter
++                Text {
++                    text: "±" + slider.stepSize + "%"
++                    anchors.centerIn: parent
++                    color: "white"
++                    font.pixelSize: 24
++                }
++    
++                MouseArea {
++                    anchors.fill: parent
++                    onClicked: {
++                        slider.stepSize = slider.stepSize === 2 ? 10 : 2;
++                    }
++                }
++            }
++            Text {
++                id: layerLbl
++                text: qsTr("Layer")
++                color: "white"
++                font.pixelSize: 18
++                anchors.left: parent.left
++                anchors.leftMargin: 20
++                anchors.top: slider.top
++                anchors.topMargin:40
++            }
++            Text {
++                id: layernumlbl
++                text: X1Plus.Bindings.layerNum()
++                color: "white"
++                font.pixelSize: 18
++                anchors.left: parent.left
++                anchors.leftMargin: 20
++                anchors.top: layerLbl.bottom
++                anchors.topMargin:25
++            }
++            Text {
++                id: currentSpeedLabel
++                text: qsTr("Current Speed")
++                color: "white"
++                font.pixelSize: 18
++                anchors.right: parent.right
++                anchors.rightMargin: 20
++                anchors.top: slider.top
++                anchors.topMargin:40
++            }
++            Text {
++                id: currentSpeedText
++                text: curSpeed.toFixed(1) + "%"
++                font.pixelSize: 24
++                color: "white"
++                anchors.top: currentSpeedLabel.bottom
++                anchors.right: currentSpeedLabel.right
++                anchors.topMargin: 5
++            }
++            Text {
++                id: targetSpeedLabel
++                text: qsTr("Target Speed")
++                color: "white"
++                font.pixelSize: 18
++                anchors.top: currentSpeedText.bottom
++                anchors.right: currentSpeedText.right
++                anchors.topMargin: 20
++            }
++            Text {
++                id: targetSpeedText
++                text: targetSpeed.toFixed(1).toString() +"%"
++                font.pixelSize: 24
++                color: "white"
++                anchors.top: targetSpeedLabel.bottom
++                anchors.right: targetSpeedLabel.right
++                anchors.topMargin: 5
++            }
++            Text {
++                id: printEtaLabel
++                text: qsTr("Print ETA")
++                color: "white"
++                font.pixelSize: 18
++                anchors.top: targetSpeedText.bottom
++                anchors.right: targetSpeedText.right
++                anchors.topMargin: 20
++            }
++            Text {
++                id: printEtaText
++                text: Printer.durationString(PrintManager.currentTask.remainTime)
++                font.pixelSize: 24
++                color: "white"
++                anchors.top: printEtaLabel.bottom
++                anchors.right: printEtaLabel.right
++                anchors.topMargin: 5
++            }
++            Item {
++                id: buttonsContainer
++                width: parent.width
++                height: 170
++                anchors.horizontalCenter: parent.horizontalCenter
++                anchors.top: slider.bottom
++                anchors.topMargin: 30
++                
++                Row {
++                    spacing: 15 
++                    anchors.horizontalCenter: parent.horizontalCenter             
++                    Rectangle {
++                        id: rampButton
++                        width: 145+70
++                        height: 125
++                        //color: "#00ad42"//"#eb6600"
++                        color: Colors.gray_600
++                        radius: 25
++                        Text {
++                            text: qsTr("Ramp")
++                            anchors.centerIn: parent
++                            color: "white"
++                            font.pixelSize: 30 
++                        }
 +
-+                    ctx.shadowOffsetX = 2;
-+                    ctx.shadowOffsetY = 2;
-+                    ctx.shadowBlur = 4;
-+                    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
++                        MouseArea {
++                            anchors.fill: parent
++                            onClicked: {
++                                let gcode = X1Plus.GcodeGenerator.GcodeLibrary.macros.rampSpeedLevel(curSpeed,targetSpeed,10);
++                                console.log(gcode);
++                                X1Plus.Bindings.printStatusActions.updateRampStatus(layerNum,10,curSpeed,targetSpeed);
++                            }
++                            onEntered: parent.opacity = 0.8
++                            onExited: parent.opacity = 1.0
++                        }
++                    }
++                    Rectangle {
++                        width: 1
++                        height: 105*.85
++                        anchors.verticalCenter: parent.verticalCenter
++                    }
++                    Rectangle {
++                        id: applyButton
++                        width: 145+70
++                        height: 125
++                        color: Colors.gray_600
++                    // color: "#00ad42"//Colors.gray_300
++                        //border.color: Colors.gray_100
++                        radius: 25
 +
-+                    speedPositions.forEach(function(pos) {
-+                        ctx.fillStyle = "#eb6600";
-+                        ctx.beginPath();
-+                        ctx.arc(pos.x, pos.y, 10, 0, 2 * Math.PI);
-+                        ctx.fill();
-+                    });
++                        Text {
++                            text: qsTr("Apply")
++                            anchors.centerIn: parent
++                            color: "white"
++                            font.pixelSize: 30
++                        
++                        }
 +
-+                    ctx.shadowOffsetX = 0;
-+                    ctx.shadowOffsetY = 0;
-+                    ctx.shadowBlur = 0;
-+                    ctx.shadowColor = "transparent";
++                        MouseArea {
++                            anchors.fill: parent
++                            onClicked: {
++                                X1Plus.Bindings.printStatusActions.setPrintSpeedGcode(speedPad.speed);
++                                X1Plus.Bindings.printStatusActions.updatePrintSpeed();
++                                speedPad.target = null;
++                                
++                            }
++                            onEntered: parent.opacity = 0.8
++                            onExited: parent.opacity = 1.0
++                        }
++                    }
++                }
++            }
++            Rectangle {
++                id: labelRect
++                color:"transparent"
++                anchors.fill: slider
++                Repeater {
++                    model: speedValues
++                    delegate: Text {
++                        text: modelData + "%"
++                        color: "white"
++                        font.pixelSize: 24
++                        anchors.right: labelRect.left
++                        anchors.rightMargin: 10
++                        horizontalAlignment: Text.AlignHCenter
++                        verticalAlignment: Text.AlignVCenter
++                        y : speedPad.calculateYPosition(modelData) - height / 2     
++                    }
++                }
++                Canvas {
++                    id: canvas
++                    anchors.fill: parent
++                    property var speedPositions: []
++
++                    function updateSpeedPositions() {
++                        var newPositions = [];
++                        for (var i = 0; i < speedValues.length; i++) {
++                            var yPos = speedPad.calculateYPosition(speedValues[i]);
++                            newPositions.push({ x: slider.width / 2, y: yPos });
++                        }
++                        speedPositions = newPositions;
++                        requestPaint();
++                    }
++    
++                    onPaint: {
++                        var ctx = getContext("2d");
++                        ctx.clearRect(0, 0, width, height); 
++
++                        ctx.shadowOffsetX = 2;
++                        ctx.shadowOffsetY = 2;
++                        ctx.shadowBlur = 4;
++                        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
++
++                        speedPositions.forEach(function(pos) {
++                            ctx.fillStyle = "#eb6600";
++                            ctx.beginPath();
++                            ctx.arc(pos.x, pos.y, 10, 0, 2 * Math.PI);
++                            ctx.fill();
++                        });
++
++                        ctx.shadowOffsetX = 0;
++                        ctx.shadowOffsetY = 0;
++                        ctx.shadowBlur = 0;
++                        ctx.shadowColor = "transparent";
++                    }
++                    Component.onCompleted: requestPaint()
                  }
 -                titleFont: Fonts.body_36
 -                steps: PrintManager.currentTask.printSpeedModeStrings
-+                Component.onCompleted: requestPaint()
              }
          }
      }
-+}
-+            
-+
-+            // ZStepBar {
-+            //     id: stepBar
-+            //     width: parent.width - 260
-+            //     x: 160
-+            //     y: 120
-+            //     stepOffset: 127
-+            //     titleOffset: 60
-+            //     barColor: Colors.gray_800
-+            //     thumbIcon: "../../icon/thumb.svg"
-+            //     tipColor: Colors.gray_400
-+            //     titleColor: StateColor {
-+            //         StateColorItem { color: "brand"; states: StateColor.Checked }
-+            //         StateColorItem { color: "gray_200"; states: StateColor.Normal }
-+            //     }
-+            //     titleFont: Fonts.body_36
-+            //     steps: PrintManager.currentTask.printSpeedModeStrings
-+            // }
-+
- 
-     Item {
-         id: fanPad
-@@ -503,7 +805,7 @@
+@@ -498,7 +759,7 @@
              EventTrack.itemName: "tempAndSpeed_" + modelData.name
  
              Binding on text {
@@ -520,31 +415,3 @@
                 when: speedPad.target == modelData
              }
  
-@@ -766,7 +1068,6 @@
- 
-                     onToggled: {
-                         modelData.isOn = !modelData.isOn
--                        console.log(modelData.isOn, modelData.name);
-                     }
-                 }
- 
-@@ -806,9 +1107,6 @@
-                 EventTrack.itemName: "bigSector_" + modelData.name
- 
-                 onClicked: {
--                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) != PrintManager.AXIS_HOMED_ALL) {
--                        limitFrame()
--                    }
-                     axisController.moveAxis(modelData.axis, modelData.dir, AxisController.MM_10)
-                 }
-             }
-@@ -818,9 +812,6 @@
-                 EventTrack.itemName: "smallSector_" + modelData.name
- 
-                 onClicked: {
--                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) != PrintManager.AXIS_HOMED_ALL) {
--                        limitFrame()
--                    }
-                     axisController.moveAxis(modelData.axis, modelData.dir, AxisController.MM)
-                 }
-             }

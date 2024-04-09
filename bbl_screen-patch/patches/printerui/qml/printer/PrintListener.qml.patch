@@ -1,8 +1,10 @@
 --- printer_ui-orig/printerui/qml/printer/PrintListener.qml
 +++ printer_ui/printerui/qml/printer/PrintListener.qml
-@@ -48,6 +48,10 @@
+@@ -1,15 +1,26 @@
  import QtQuick 2.12
  import Printer 1.0
++import "../X1Plus.js" as X1Plus
+ 
  Item {
  
      property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
@@ -21,10 +23,10 @@
 +        X1Plus.Bindings.layerActions.setTotalLayer(layerNum);
 +        let f = X1Plus.Bindings.speedRampStatus();
 +        if (f !== []){
-+            console.log(f);
++           //speed level is being ramped.. do something here
 +        }
      }
- 
+-
      Shortcut {
 @@ -32,6 +43,7 @@
          target: PrintManager

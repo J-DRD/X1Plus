@@ -135,17 +135,15 @@ function M900(k, l, m) {
  * Generates G-code based on the print speed level.
  * 
  * @param {number} speedPercentage The desired print speed as a percentage of the normal speed (100%).
- *                                 Accepts: 50 (Silent), 100 (Normal), 125 (Sport), 166 (Luda).
+ *                                 Accepts: 50 (Silent), 100 (Normal), 125 (Sport), 166 (Luda)
  * @returns {string} The G-code string to set print speed
  */
-function M2042(speedPercentage = 100) {
-
 function M2042(speedPercentage) {
-    if (speedPercentage <35 || speedPercentage > 175){
+    if (speedPercentage <30 || speedPercentage > 180){
         speedPercentage = 100;
     }
-    // Convert percentage to a decimal for calculation
-    var speedFraction = 100 / speedPercentage;
+    // Convert percentage to a fraction, use Math.floor() to keep our target % the same as Bambu's reported %
+    var speedFraction = Math.floor(10000 / speedPercentage)/100;
     
     // Calculate acceleration magnitude from speed fraction based on log trendline
     var accelerationMagnitude = Math.exp((speedFraction - 1.0191) / -0.814);
@@ -159,7 +157,7 @@ function M2042(speedPercentage) {
     return [
         `M204.2 K${accelerationMagnitude.toFixed(2)}`,
         `M220 K${feedRate.toFixed(2)}`,
-        `M73.2 R${speedFraction.toFixed(2)}`,
+        `M73.2 R${speedFraction}`,
         `M1002 set_gcode_claim_speed_level ${Math.round(level)}`
     ].join(" \n") + "\n";
 }
@@ -274,16 +272,22 @@ function M221(s) /* set flow rate (default = 100%) */
     return `M221 S${s}\n`;
 }
 
-
-
-function M960({type, val}){ /* led controls */
-    var gcode;
-    if (type == LEDS.LASER_VERTICAL) gcode = `M960 S1 P${val}`;
-    if (type == LEDS.LASER_HORIZONTAL) gcode = `M960 S2 P${val}`;
-    if (type == LEDS.LED_NOZZLE) gcode = `M960 S4 P${val}`;
-    if (type == LEDS.LED_TOOLHEAD) gcode = `M960 S5 P${val}`;
-    if (type == LEDS.ALL_LEDS) gcode = `M960 S0 P${val}`;
-    return `${gcode}\n`;
+var M960 = {
+    laser_vertical: (val) => {
+        return `M960 S1 P${val}\n`;
+    },
+    laser_horizontal: (val) => {
+        return `M960 S2 P${val}\n`;
+    },
+    nozzle: (val) => {
+        return `M960 S4 P${val}\n`;
+    },
+    toolhead: (val) => {
+        return `M960 S5 P${val}\n`;
+    },
+    all: (val) => {
+        return `M960 S0 P${val}\n`;
+    }  
 }
 
 function M973({action, num = 1, expose = 0}) { /* nozzle camera stream */
@@ -493,21 +497,6 @@ const GcodeLibrary = {
         
     },
     controls: {
-        leds: {
-            toggle: (led,status) => [
-                () => M960({type: led, val: status}),
-            ]
-        },
-
-        fans: {
-            toggle: (fan,speed) => [
-                () => M106({fan: fan, speed: speed}),
-            ]
-        },
-        heaters: {
-            bed: (temp, wait) => wait ? () =>  M140(temp) : () => M190(temp),
-            nozzle: (temp, wait) => wait ? () =>  M109(temp) : () => M104(temp),
-        },
         settings:{
             z_offset: (offset)=> G291(offset),
             k_value: (k,l,m) => M900(k,l,m),
@@ -542,12 +531,3 @@ function compileGcode(commands) {
 //var GcodeLibrary = X1Plus.GcodeGenerator;
 //var commands = GcodeLibrary.Commands;
 //const trammingGcode = GcodeLibrary.compileGcode(commands.calibration.Tramming.exit);
-
-// ()=> G28(0),
-// () => G0({x: 240, y: 90, z: 8, accel: 1200}),
-// () => M960(LEDS.LED_NOZZLE, 1),
-// () => M973(OV2740.ON),
-// () => M973(OV2740.AUTOEXPOSE),
-// () => M973(OV2740.CAPTURE, 1, 1),
-// () => M960(LEDS.LED_NOZZLE, 0),
-// () => M973(OV2740.OFF),

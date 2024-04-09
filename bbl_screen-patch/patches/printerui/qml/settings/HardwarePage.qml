@@ -412,7 +412,7 @@ Rectangle {
             to: 100
             onMoved: {
                 brightness = value;
-                X1PlusNative.updateBacklight(value);
+                X1Plus.Bindings.LED.backlight(value);
                 dispBrightnessChangeTimer.restart();
             }
             background: Rectangle {
@@ -446,11 +446,12 @@ Rectangle {
             id: toolheadLedButton
             anchors.verticalCenter: toolheadLedTxt.verticalCenter
             anchors.right: buttonGrid.right
-            dynamicChecked: DeviceManager.getSetting("cfw_toolhead_led", false)
+            dynamicChecked: DeviceManager.getSetting("cfw_toolhead_led", 0)
             onToggled: {
                 dynamicChecked = checked
-                DeviceManager.putSetting("cfw_toolhead_led", checked);
-                X1Plus.sendGcode("M960 S5 P" + (checked ? 1 : 0));
+                let f = (checked == true) ? 1 : 0;
+                DeviceManager.putSetting("cfw_toolhead_led", f);
+                X1Plus.Bindings.LED.toolhead(f);
             }
         }
     }

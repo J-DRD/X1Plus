@@ -90,13 +90,6 @@ var layerActions = {
 };
 
 var [taskProgress, taskProgressChanged, _setTaskProgress] = Binding.makeBinding(-1);
-
-var progressActions = {
-    setProgress: () => {
-        _setTaskProgress(X1Plus.PrintManager.currentTask.progress);
-    }
-};
-
 var [runout, runoutChanged, _setRunout] = Binding.makeBinding(false);
 var [printPaused, printPausedChanged, _setPrintPaused] = Binding.makeBinding(false);
 var [printIdle, printIdleChanged, _setPrintIdle] = Binding.makeBinding(false);
@@ -106,6 +99,12 @@ var [speedRampStatus, speedRampStatusChanged, _setSpeedRampStatus] = Binding.mak
 var [speedRamping, speedRampingChanged, _setSpeedRamping] = Binding.makeBinding([]);
 
 var printStatusActions = {
+    setProgress: () => {
+        _setTaskProgress(X1Plus.PrintManager.currentTask.progress);
+    },
+    updateRunout: () => {
+        _setRunout(X1Plus.PrintManager.MS_FILAMENT_LOADED);
+    },
     updatePaused: () => {
         _setPrintPaused(X1Plus.PrintManager.currentTask.stage === X1Plus.PrintTask.PAUSED);
     },
@@ -131,21 +130,6 @@ var printStatusActions = {
     },
     
 };
-
-
-function backlight() {
-	_X1PlusNative.updateBacklight(DeviceManager.getSetting("cfw_brightness", 100));
-}
-
-function toolheadLED() {
-	var on = DeviceManager.getSetting("cfw_toolhead_led", false);
-	X1Plus.sendGcode(`M960 S5 P${on ? 1 : 0}`);
-}
-
-function chamberLED() {
-	_X1PlusNative.updateChamberLED(DeviceManager.getSetting("cfw_chamber", 1));
-}
-
 
 var [sleep, sleepChanged, _setSleep] = Binding.makeBinding(false);
 var [aboutToSleep, aboutToSleepChanged, _setAboutToSleep] = Binding.makeBinding(false);
@@ -198,4 +182,15 @@ var fans = {
         
     }
 }
-// function filamentSensor(){
+
+var LED = {
+    backlight: (val=100) => {
+        _X1PlusNative.updateBacklight(val);
+    },
+    toolhead: (val=0) => {
+        X1Plus.sendGcode(X1Plus.GcodeGenerator.M960.toolhead(val));
+    },
+    chamber: (val=100) => {
+        _X1PlusNative.updateChamberLED(val);
+    }
+}
