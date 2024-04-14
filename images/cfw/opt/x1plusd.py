@@ -7,6 +7,10 @@ import json
 import subprocess
 import traceback
 import time
+from logger.custom_logger import CustomLogger
+
+# should probably check if the user has SD logging enabled? if so, change the filepath to /sdcard/log/x1plusd.log
+x1pusd_log = CustomLogger("x1plusd", "/tmp/x1plusd.log",500000,1,False) 
 
 # probably this should be encapsulated in a DDS class, but...
 
@@ -24,6 +28,7 @@ def dds_start():
     
     dds_request_queue = dds.subscribe("device/x1plus/request")
     dds_report_publisher = dds.publisher("device/x1plus/report")
+    x1pusd_log.info("x1plusd: Starting DDS")
     print("x1plusd: waiting for DDS startup")
     time.sleep(2) # evade, don't solve, race conditions
 
@@ -37,6 +42,7 @@ def dds_loop():
                     dds_handlers[k](req)
         except Exception as e:
             # TODO: log this
+            x1pusd_log.error(f"x1plusd: exception while handling request {req_raw}")
             print(f"x1plusd: exception while handling request {req_raw}")
             traceback.print_exc()
 
@@ -108,6 +114,7 @@ class SettingsService:
                 self.settings = json.load(fh)
         except FileNotFoundError as exc:
             # TODO: log to syslog
+            x1pusd_log.debug("x1plusd: settings file not found. Creating one with defaults")
             print("Settings file does not exist, creating with defaults...")
             # TODO: Add logic here (call helper function) to check for flag files, 
             # and adjust our defaults to match
@@ -130,14 +137,14 @@ class SettingsService:
             settings_set = req['settings']['set']
 
             if not isinstance(settings_set, dict):
-                # TODO: log this to the syslog
+                x1pusd_log.debug(f"x1p_settings: set request {req} is not a dictionary")
                 print(f"x1p_settings: set request {req} is not a dictionary")
                 return
 
             self.settings.update(settings_set)
             self._save()
             
-            # TODO: log this to the syslog
+            x1pusd_log.info(f"x1p_settings: updated {settings_set}")
             print(f"x1p_settings: updated {settings_set}")
             
             # Inform everyone else on the system, only *after* we have saved
@@ -147,7 +154,7 @@ class SettingsService:
             # they read it.
             dds_report({'settings': {'changes': settings_set}})
         else:
-            # TODO: log this to the syslog
+            x1pusd_log.debug(f"x1p_settings: settings request {req} was not a known opcode")
             print(f"x1p_settings: settings request {req} was not a known opcode")
 
 # TODO: hoist this into an x1plus package

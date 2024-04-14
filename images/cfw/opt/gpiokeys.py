@@ -15,7 +15,7 @@ KEY_STOP = 128
 
 
 gpio_dds_publisher = dds.publisher('device/x1plus')
-gpio_log = CustomLogger("gpiokeys", "/tmp/gpiokeys.log",500000,1)  
+gpio_log = CustomLogger("gpiokeys", "/tmp/gpiokeys.log",500000,1,False)  
 
 def send_dds(name, press_type):
     dds_payload = json.dumps({

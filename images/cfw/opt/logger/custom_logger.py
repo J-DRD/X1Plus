@@ -1,9 +1,9 @@
 import logging
-from logging.handlers import RotatingFileHandler
+from logging.handlers import RotatingFileHandler, SysLogHandler
 import atexit
 
 class CustomLogger:
-    def __init__(self, name, filename, maxBytes=1048576, backupCount=5):
+    def __init__(self, name, filename, maxBytes=1048576, backupCount=5, use_syslog=False):
         """
         Initializes a custom logger with a RotatingFileHandler.
 
@@ -12,22 +12,34 @@ class CustomLogger:
         - filename: Path to the log file.
         - maxBytes: Maximum file size before rotating (default is 1MB).
         - backupCount: Number of backup files to keep (default is 5).
+        - use_syslog: Log messages to syslog.log in addition to the custom log file. Default is false.
         """
         self.logger = logging.getLogger(name)
         if not self.logger.hasHandlers():
             formatter = logging.Formatter("%(asctime)s - %(message)s")
-            handler = RotatingFileHandler(filename, maxBytes=maxBytes, backupCount=backupCount)
-            handler.setFormatter(formatter)
+            file_handler = RotatingFileHandler(filename, maxBytes=maxBytes, backupCount=backupCount)
+            file_handler.setFormatter(formatter)
             self.logger.setLevel(logging.INFO)
-            self.logger.addHandler(handler)
-            atexit.register(self.removeHandler, handler)
+            self.logger.addHandler(file_handler)
+            
+            # Setup syslog handler
+            if use_syslog:
+                syslog_handler = SysLogHandler(address='/dev/log')  # Update '/dev/log' if necessary
+                syslog_handler.setFormatter(formatter)
+                self.logger.addHandler(syslog_handler)
 
-    def removeHandler(self, handler):
+            self.logger.setLevel(logging.INFO)
+            atexit.register(self.removeHandlers, file_handler, syslog_handler if use_syslog else None)
+
+    def removeHandlers(self, file_handler, syslog_handler=None):
         """
-        Removes a handler from the logger and closes it. Intended to be called at exit.
+        Removes handlers from the logger and closes them. Intended to be called at exit.
         """
-        self.logger.removeHandler(handler)
-        handler.close()
+        self.logger.removeHandler(file_handler)
+        file_handler.close()
+        if syslog_handler:
+            self.logger.removeHandler(syslog_handler)
+            syslog_handler.close()
 
     def info(self, message):
         """
@@ -48,5 +60,5 @@ class CustomLogger:
         self.logger.error(message)
 
 # Usage:
-# exampleLog = CustomLogger("exampleLogger", "/tmp/example.log", 1000000, 3)
+# exampleLog = CustomLogger("exampleLogger", "/tmp/example.log", 1000000, 3, False)
 # exampleLog.info("This is a test log message.")

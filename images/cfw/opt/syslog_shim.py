@@ -7,7 +7,7 @@ from collections import namedtuple
 from logger.tail import TailLog
 import dds
 
-syslog_log = CustomLogger("Syslog parser", "/tmp/x1plus_data.log", 500000, 1)
+syslog_log = CustomLogger("Syslog parser", "/tmp/x1plus_data.log", 500000, 1, False)
 
 # Define a basic mechanism for "do something when you see some particular
 # type of line in the syslog".
