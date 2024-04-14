@@ -13,11 +13,15 @@ import ".."
 Item {
     id: consoleComp
     property var cmdHistory:[]
+    property var historyPlaceholder:-1
     property var gencode: X1Plus.GcodeGenerator
     property bool gcodeCmd: DeviceManager.getSetting("cfw_default_console",false);
-    property var gcodes: ["ABL On/Off",
-                "Coordinates:<br>Absolute",
-                "Coordinates:<br>Relative",
+    property var inputText: "";
+    
+    property var gcodes: ["History",
+                "ABL On",
+                "Toolhead:<br>Absolute",
+                "Toolhead:<br>Relative",
                 "Disable<br>Endstops",
                 "Extruder:<br>Retract",
                 "Extruder:<br>Extrude",
@@ -54,9 +58,10 @@ Item {
                 "Reset<br>Flow Rate",
                 "Save<br>(M500)",
                 "Stepper<br>Current",
-                "Temperature:<br>Nozzle",
-                "Temperature:<br>Bed",
-                "Temperature:<br>Bed + Wait"
+                "Temp:<br>Nozzle",
+                "Temp:<br>Bed",
+                "Temp:<br>Wait for<br>nozzle",
+                "Temp:<br>Wait for<br>bed"
                 ]
     property var gcode_actions: [
                 gencode.G292(1),
@@ -65,24 +70,24 @@ Item {
                 gencode.M211({x:0,y:0,z:0}),
                 gencode.G1({e: -5, accel: 300}),
                 gencode.G1({e: 5, accel: 300}),
-                gencode.M106(gencode.FANS.AUX_FAN,255),
-                gencode.M106(gencode.FANS.CHAMBER_FAN,255),
-                gencode.M106(gencode.FANS.PART_FAN,255),
-                gencode.M1002({action_code:3, action:1}),
-                gencode.G28(0),
-                gencode.G28(4),
-                gencode.G28(1),
+                gencode.M106.aux(255),
+                gencode.M106.chamber(255),
+                gencode.M106.part(255),
+                gencode.M1002.gcode_claim_action(0),
+                gencode.G28.xyz,
+                gencode.G28.xy,
+                gencode.G28.z_low_precision,
                 gencode.M975(true),
                 gencode.M221({x:0,y:0,z:0}),
                 gencode.M900(0.01,1,1000),
-                gencode.M960({type:gencode.LEDS.LASER_VERTICAL,val:1}),
-                gencode.M960({type:gencode.LEDS.LASER_HORIZONTAL,val:1}),
-                gencode.M973({action:gencode.OV2740.ON}),
-                gencode.M973({action:gencode.OV2740.OFF}),  
-                gencode.M973({action:gencode.OV2740.EXPOSE,num:2, expose:600}),
-                gencode.M973({action:gencode.OV2740.CAPTURE, num:1, expose:1}),
-                gencode.M960({type:gencode.LEDS.LED_NOZZLE,val:1}),
-                gencode.M960({type:gencode.LEDS.LED_TOOLHEAD,val:1}),
+                gencode.M960.laser_vertical(1),
+                gencode.M960.lazer_horizontal(1),
+                gencode.M973.on,
+                gencode.M973.off,  
+                gencode.M973.expose(2,600),
+                gencode.M973.capture(1,1),
+                gencode.M960.nozzle(1),
+                gencode.M960.toolhead(1),
                 gencode.G91() + '\\n' + gencode.G0({z:10,accel:1200}), 
                 gencode.G91() + '\\n' + gencode.G0({z:-10,accel:1200}), 
                 gencode.G0({x:228,y:253,z:8,accel:1200}),
@@ -98,11 +103,12 @@ Item {
                 gencode.M220(),
                 gencode.M500(),
                 gencode.M17(0.3,0.3,0.3),
-                gencode.M109(250),
+                gencode.M104(250),
                 gencode.M140(100),
-                gencode.M140(55,true)
+                gencode.M109(250),
+                gencode.M190(55)
                 ]
-    property var cmds: [" $ ","  ( )  "," ` ", "  { }  ","  |  ","  -  ","  &  ","  /  ", "reboot","awk ","cat ", "chmod ","chown ", "chroot", "cp ","date -s ", "dd ", "df ", "echo ","grep", "head ","ifconfig", "iptables ", "kill ","killall ","ln -s","ls -l ","mount ","mv ","pgrep ","pidof","ping -c 1","poweroff","print ","ps aux ", "ps -ef ", "pwd", "remount", "rm ", "sed","sort","tar","test","touch ", "uname -a"]
+    property var cmds: ["History"," $ ","  ( )  "," ` ", "  { }  ","  |  ","  -  ","  &  ","  /  ", "reboot","awk ","cat ", "chmod ","chown ", "chroot", "cp ","date -s ", "dd ", "df ", "echo ","grep", "head ","ifconfig", "iptables ", "kill ","killall ","ln -s","ls -l ","mount ","mv ","pgrep ","pidof","ping -c 1","poweroff","print ","ps aux ", "ps -ef ", "pwd", "remount", "rm ", "sed","sort","tar","test","touch ", "uname -a"]
     property var outputText:""
     property string savePath
     property string space: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'
@@ -220,7 +226,7 @@ Item {
             clip:true
             delegate: Item {
                 id: itm
-                width: gcodeCmd ? 130 : (index < 8) ? 70 : 130
+                width: (index == 0) ? 100 : gcodeCmd ? 130 : (index < 8) ? 70 : 130
                 height: hotkeysList.height
                 ZButton {
                     text: modelData
@@ -233,20 +239,23 @@ Item {
                     borderColor: "transparent"
                     //cornerRadius: width / 2
                     onClicked: {
-                        if (gcodeCmd){
-                            if (inputTextBox.text == "") {
-                                inputTextBox.text = gcode_actions[index].trim();
-                            } else {
-                                inputTextBox.text =inputTextBox.text +"\\n"+ gcode_actions[index].trim();
-                            }
+                        if (index == 0 ){
+                            if (cmdHistory.length == 0) return;
+                                if (historyPlaceholder < 1) {
+                                    historyPlaceholder = cmdHistory.length - 1;
+                                } else {
+                                    historyPlaceholder = 0
+                                }
+                                inputText = cmdHistory[historyPlaceholder];
+                                historyPlaceholder += -1;
                         } else {
-                            let cmdreplace = cmds[index];
-                            if (index < 8) {
-                                cmdreplace = cmdreplace.trim();
-                                inputTextBox.text = inputTextBox.text + cmdreplace.replace("<br>","");
+                            if (gcodeCmd){
+                                if (inputText.trim().length > 0) inputText += "\\n";
+                                inputText += gcode_actions[index].trim()
                             } else {
-                                cmdreplace = cmdreplace.trim();
-                                inputTextBox.text =cmdreplace.replace("<br>","");
+                                let cmd = cmds[index].trim().replace("<br>","");
+                                if (index < 8) inputText += inputText;
+                                inputText += cmd;
                             }
                         }
                     }
@@ -368,6 +377,7 @@ Item {
             font: Fonts.body_28
             color: Colors.gray_200
             selectByMouse: true
+            text: inputText
             verticalAlignment: TextInput.AlignVCenter
             inputMethodHints: gcodeCmd ? Qt.ImhAutoUppercase | Qt.ImhPreferUppercase | Qt.ImhPreferNumbers
                                 | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhLatinOnly
@@ -382,6 +392,9 @@ Item {
             }
             leftInset: -20
             rightInset: -20
+            Binding on text {
+                value: inputText
+            }
             // taphandler was not working because TextInput already has a MouseArea defined. 
             //I like this idea though (long press to pull up historical commands) but we need
             //to sort out input handling
@@ -417,7 +430,7 @@ Item {
             property string out
             property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
             onClicked: {
-                var inputCmd = inputTextBox.text.trim();
+                var inputCmd = inputText.trim();
                 if (inputCmd.length <1) return;
                 inputCmd = inputCmd.replace(/\\n/g, '\n  ');
                 
@@ -449,7 +462,7 @@ Item {
                 if (!gcodeCmd) {
                     termScroll.scroll(origHeight);
                 }
-                inputTextBox.text = "";
+                inputText = "";
             }
         }
 
@@ -494,7 +507,7 @@ Item {
                                 isUsePassWord : false,
                                 isInputShow : true,
                                 isInputting_obj : rect_isInputting_obj,
-                                output_obj : savePath});    
+                                output_obj : inputText});    
         }
     QtObject {
         id: rect_isInputting_obj

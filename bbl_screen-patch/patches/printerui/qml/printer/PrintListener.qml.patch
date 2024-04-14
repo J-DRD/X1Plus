@@ -1,6 +1,6 @@
 --- printer_ui-orig/printerui/qml/printer/PrintListener.qml
 +++ printer_ui/printerui/qml/printer/PrintListener.qml
-@@ -1,15 +1,26 @@
+@@ -1,15 +1,23 @@
  import QtQuick 2.12
  import Printer 1.0
 +import "../X1Plus.js" as X1Plus
@@ -10,40 +10,18 @@
      property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
      property var printState: PrintManager.currentTask.state
 -
-+    property var layerNum: PrintManager.currentTask.layerNum
 +    property var totalLayer: X1Plus.Bindings.totalLayerNum()
-+    
++    property var layerNum: PrintManager.currentTask.layerNum
++   
      onPrintingChanged: {
--        DeviceManager.power.externalWakeup()
-+        X1Plus.Bindings.printStatusActions.updatePrintState();
-+        DeviceManager.power.externalWakeup();
-+    }
-+    onLayerNumChanged: {
-+        X1Plus.Bindings.layerActions.setCurrentLayer(layerNum);
-+        X1Plus.Bindings.layerActions.setTotalLayer(layerNum);
-+        let f = X1Plus.Bindings.speedRampStatus();
-+        if (f !== []){
-+           //speed level is being ramped.. do something here
-+        }
+         DeviceManager.power.externalWakeup()
      }
--
-     Shortcut {
-@@ -32,6 +43,7 @@
-         target: PrintManager
-         ignoreUnknownSignals: false
-         onNotify: {
-+            console.log(type,name,msg);
-             if (type === PrintManager.Finish || type === PrintManager.Failed) {
-                 if (name == "print" && (printState == PrintTask.FINISH || printState == PrintTask.FAILED)) {
-                     dialogStack.popupDialog("PrintFinish", { errorMsg: msg, name: name })
-@@ -48,6 +60,10 @@
-                 }
-             }
  
-+            if (name == "update" && screenSaver.overrideUpdater) {
-+                // suppress "The version has been updated to..." message
-+                return
-+            }
-             dialogStack.popupDialog("ErrorPrompt", {
-                                         level: type,
-                                         name: name,
++    onLayerNumChanged: {
++        X1Plus.Bindings.printLayer.setCurrent();
++        X1Plus.Bindings.printLayer.setTotal();        
++    }
++    
+     Shortcut {
+         sequences: ["Stop", "Ctrl+B"]
+         onActivated: {

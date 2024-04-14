@@ -8,37 +8,6 @@ var X1Plus = null;
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
 
-const OV2740 = {
-    OFF: 0,
-    ON: 1,
-    AUTOEXPOSE: 2,
-    EXPOSE: 3,
-    CAPTURE: 4
-}
-const LEDS = {
-    LASER_VERTICAL: 0,
-    LASER_HORIZONTAL: 1,
-    LED_NOZZLE: 2,
-    LED_TOOLHEAD: 3,
-    ALL_LEDS: 4
-}
-const HOMING = {
-    XYZ: 0,
-    Z_LOW_PRECISION: 1,
-    Z_LOW_PRECISION_HOTEND_ON: 2,
-    XY: 3
-}
-const SPEED_LEVELS = {
-    SILENT: 4,
-    NORMAL: 5,
-    SPORT: 6,
-    LUDA: 7
-}
-const FANS = {
-    PART_FAN: 1,
-    AUX_FAN: 2,
-    CHAMBER_FAN:3
-}
 
 
 function createGcode(command, params = {}) {
@@ -52,21 +21,48 @@ function createGcode(command, params = {}) {
 }
 
 
+// var placeholders = {
+//     layer_num
+//     layer_z
+//     max_layer_z
+//     toolchange_count
+//     old_retract_length
+//     new_retract_length
+//     old_filament_temp
+//     new_filament_temp
+//     x_after_toolchange
+//     y_after_toolchange
+//     z_after_toolchange
+//     first_flush_volume
+//     second_flush_volume
+//     old_filament_e_feedrate
+//     new_filemnt_e_feedrate
+//     flush_length: (idx) => {return `{flush_length_${idx}}`},
+//     filament_extruder_id: () => {return `{filament_extruder_id}`},
+//     toolchange_z: () => {return `{toolchange_z}`},
+// }
+
+
 /* update timeline */
 function M73(val1, val2) {
     return `M73 P${val1} R${val2}\n`;
 }
 
-/* homing */
-function G28(type = 0, nozzle_temp = 0) {
-    switch (type) {
-        case HOMING.XYZ: return 'G28\n';
-        case HOMING.Z_LOW_PRECISION: return 'G28 Z P0\n';
-        case HOMING.Z_LOW_PRECISION_HOTEND_ON: return `G28 Z P0 T${nozzle_temp}\n`;
-        case HOMING.XY: return 'G28 X\n';
-        default: return 'G28\n';
+var G28 = { /* homing */
+    xyz: () => {
+        return `G28\n`;
+    },
+    z_low_precision: () => {
+        return `G28 Z P0\n`;
+    },
+    z_low_precision_heated: (temp) => {
+        return `G28 Z P0 T${temp}\n`;
+    },
+    xy: () => {
+        return `G28 X\n`;
     }
 }
+
 /* endstops */
 function M211({ x = '', y = '', z = ''}) {
     return this.createGcode('M211', { X: x, Y: y, Z: z});
@@ -163,7 +159,7 @@ function M2042(speedPercentage) {
         `M204.2 K${accelerationMagnitude.toFixed(2)}`,
         `M220 K${feedRate.toFixed(2)}`,
         `M73.2 R${speedFraction}`,
-        `M1002 set_gcode_claim_speed_level ${Math.round(level)}`
+        M1002.set_gcode_claim_speed_level(Math.round(level))
     ].join(" \n") + "\n";
 }
 
@@ -175,45 +171,43 @@ function G0({ x = '', y = '', z = '', accel = '' }) {
 function G1({ x = '', y = '', z = '', e = '', accel = '' }) {
     return this.createGcode('G1', { X: x, Y: y, Z: z, E: e, F: accel });
 }
-/* claim action and judge flag */
-function M1002({action_code, action = 0}) {
-    const judge_flags = [
-        "g29_before_print_flag",
-        "xy_mech_mode_sweep_flag",
-        "do_micro_lidar_cali_flag",
-        "timelapse_record_flag"
-    ];
-    const claim_actions = [
-        "0 Clear screen of messages",
-        "1 Auto bed levelling",
-        "2 Heatbed preheating",
-        "3 Sweeping XY mech mode",
-        "4 Changing filament",
-        "5 M400 pause",
-        "6 Paused due to filament runout",
-        "7 Heating hotend",
-        "8 Calibrating extrusion",
-        "9 Scanning bed surface",
-        "10 Inspecting first layer",
-        "11 Identifying build plate type",
-        "12 Calibrating Micro Lidar",
-        "13 Homing toolhead",
-        "14 Cleaning nozzle tip",
-        "15 Checking extruder temperature",
-        "16 Paused by the user",
-        "17 Pause due to the falling off of the tool head’s front cover",
-        "18 Calibrating the micro lidar",
-        "19 Calibrating extruder flow",
-        "20 Paused due to nozzle temperature malfunction",
-        "21 Paused due to heat bed temperature malfunction"
-    ];
-    const actions = {
-        0: () => `M1002 gcode_claim_action : ${action_code} \n `,
-        1: () => `M1002 judge_flag : ${action_code} \n `
-    };
-    return (actions[action] || (() => ''))();
+
+var M1002 = { /* claim action and judge flag */
+    gcode_claim_action: (code) => `M1002 gcode_claim_action ${code}\n `,
+    judge_flag: (code) => `M1002 judge_flag ${code}\n `,
+    set_gcode_claim_speed_level: (code) => `M1002 set_gcode_claim_speed_level ${code}\n `,
 }
 
+// const judge_flags = [
+//     "g29_before_print_flag",
+//     "xy_mech_mode_sweep_flag",
+//     "do_micro_lidar_cali_flag",
+//     "timelapse_record_flag"
+// ];
+// const claim_actions = [
+//     "0 Clear screen of messages",
+//     "1 Auto bed levelling",
+//     "2 Heatbed preheating",
+//     "3 Sweeping XY mech mode",
+//     "4 Changing filament",
+//     "5 M400 pause",
+//     "6 Paused due to filament runout",
+//     "7 Heating hotend",
+//     "8 Calibrating extrusion",
+//     "9 Scanning bed surface",
+//     "10 Inspecting first layer",
+//     "11 Identifying build plate type",
+//     "12 Calibrating Micro Lidar",
+//     "13 Homing toolhead",
+//     "14 Cleaning nozzle tip",
+//     "15 Checking extruder temperature",
+//     "16 Paused by the user",
+//     "17 Pause due to the falling off of the tool head’s front cover",
+//     "18 Calibrating the micro lidar",
+//     "19 Calibrating extruder flow",
+//     "20 Paused due to nozzle temperature malfunction",
+//     "21 Paused due to heat bed temperature malfunction"
+// ];
 
 /* fast sweep */
 function M9703(axis = 0, a = 7, b = 30, c = 80, h = 0, k = 0) 
@@ -262,10 +256,12 @@ function M9822() /* disable motor noise cancellation */
     return "M982.2 C0\n M982.2 C1\n";
 }
 
-function  M106(type = FANS.PART_FAN, speed = 0) /* fan control */
-{
-    return `M106 P${type} S${speed}\n`;
+var M106 = {/* fan control, val = 0 to 255 */
+    part: (val) => `M106 P1 S${val}\n`,
+    aux: (val) => `M106 P2 S${val}\n`,
+    chamber: (val) => `M106 P3 S${val}\n`,
 }
+
 
 function M220() /* set feed rate (default = 100%) */
 {
@@ -348,9 +344,9 @@ function M2012() {/* reset acceleration multiplier*/
 const GcodeLibrary = {
     calibration: {
         ABL: [
-            () => M1002({action_code: 0, action: 1}),
+            () => M1002.gcode_claim_action(0),
             () => M622(1),
-            () => M1002({action_code: 1, action: 0}),
+            () => M1002.gcode_claim_action(1),
             () => G29(),
             () => M400(0),
             () => M500(),
@@ -358,7 +354,7 @@ const GcodeLibrary = {
         ],
         Vibration: (freq1, freq2, nozzleTemp, bedTemp) => {
             let gcode = [
-                () => M1002({action_code: 13, action: 0})
+                () => M1002.gcode_claim_action(13),
             ];
             let mid = Math.floor((freq2-freq1)*0.5);
             if (nozzleTemp > 0) {gcode.push(() => M109(nozzleTemp))}
@@ -369,11 +365,11 @@ const GcodeLibrary = {
                 () =>  G90(),
                 () =>  M400(1),
                 () =>  M17(1.2, 1.2, 0.75),
-                () =>  G28(HOMING.XYZ),
+                () =>  G28.xyz,
                 () =>  G0({x: 128, y: 128, z: 5, accel: 2400}),
                 () =>  M201(1000),
                 () =>  M400(1),
-                () =>  M1002({action_code:3,action:0}),
+                () =>  M1002.gcode_claim_action(3),
                 () =>  M970({axis: 1, a: 7, f_low: freq1    , f_high: mid, k: 0}),
                 () =>  M73(25,3),
                 () =>  M970({axis: 1, a: 7, f_low: mid + 1, f_high: freq2, k: 1}),
@@ -390,44 +386,44 @@ const GcodeLibrary = {
                 () =>  M400(1),
                 () =>  M140(0),
                 () =>  M109(0),
-                () => M1002({action_code: 0, action: 0})
+                () => M1002.gcode_claim_action(0),
                 ); 
             return gcode         
         },
         Tramming:  {
             exit:[
-                    () =>  M1002({action_code:254,action:0}),
+                    () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 128, y: 128, z: 1}),
                     () =>  M400(0),
-                    () =>  M1002({action_code:1,action:0})
+                    () =>  M1002.gcode_claim_action(0),
                 ],
             prepare:[
-                    () =>  M1002({action_code:254,action:0}),
+                    () =>  M1002.gcode_claim_action(254),
                     () =>  M17(1.2, 1.2, 0.75),
                     () =>  G90(),
                     () =>  M83(),
-                    () =>  G28(0),
+                    () =>  G28.xyz,
                     () =>  G1({x: 128, y: 128, z: 1}),
                     () =>  G292(0),
-                    () =>  M1002({action_code:1,action:0})
+                    () =>  M1002.gcode_claim_action(1),
                 ],
             rear_center: [
-                    () =>  M1002({action_code:254,action:0}),
+                    () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 134.8, y: 242.8, z: 0.4, accel: 3600}),
                     () =>  M400(0),
-                    () =>  M1002({action_code:1,action:0})
+                    () =>  M1002.gcode_claim_action(1),
                 ],
             front_left: [
-                    () =>  M1002({action_code:254,action:0}),
+                    () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 33.2, y: 13.2, z: 0.4, accel: 3600}),
                     () =>  M400(0),
-                    () =>  M1002({action_code:1,action:0})
+                    () =>  M1002.gcode_claim_action(1),
                 ],
             front_right:[
-                    () =>  M1002({action_code:254,action:0}),
+                    () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 222.8, y: 13.2, z: 0.4, accel: 3600}),
                     () =>  M400(0),
-                    () =>  M1002({action_code:1,action:0})
+                    () =>  M1002.gcode_claim_action(1),
                 ]
         }
         
@@ -435,7 +431,7 @@ const GcodeLibrary = {
     macros: {
         ColdPull: {
             prepare: [
-                () => G28(),
+                () => G28.z_low_precision,
                 () => M83(),
                 () => M302(1)
             ],
@@ -444,8 +440,8 @@ const GcodeLibrary = {
             ],
             flush: (temp2,temp3) => [
                 () => G1({e:60,accel:100}),
-                () => M106(FANS.AUX_FAN,255),
-                () => M106(FANS.PART_FAN, 255),
+                () => M106.aux(255),
+                () => M106.part(255),
                 () => M109(temp2),
                 () => G1({e:10,accel:100}),
                 () => M104(temp3)
@@ -468,38 +464,43 @@ const GcodeLibrary = {
             ],
             exit: [
                 () => M104(0),
-                () => M1002({action_code:0,action:0}),
-                () => M106(FANS.AUX_FAN, 0),
-                () => M106(FANS.PART_FAN, 0),
+                () => M1002.gcode_claim_action(0),
+                () => M106.aux(0),
+                () => M106.part(0),
                 () => M84()
             ]
         },
         Preheat:{
             home: () => [
-                () => G28(HOMING.Z_LOW_PRECISION),
+                () => G28.z_low_precision,
                 () => G0({z:5,accel:1200}),
                 
             ],
             on: (temp=100) => [
                 () => M140(temp),
-                () => M106(FANS.AUX_FAN,255),
-                () => M106(FANS.PART_FAN,255),
+                () => M106.aux(255),
+                () => M106.part(255),
                 
             ],
             off: () => [
                 () => M140(0),
-                () => M106(FANS.AUX_FAN,0),
-                () => M106(FANS.PART_FAN,0),                
+                () => M106.aux(0),
+                () => M106.part(0),             
             ]
         },
         rampSpeedLevel: (start_speed,end_speed,steps) => {
-            let gcode = [];
+            let levels = [];
+            if (!Number.isInteger(steps) || steps % 2 !== 0) {
+                console.log("Steps must be even numbered")
+                return [];
+            }
             let step = (end_speed - start_speed) / (steps - 1); 
+        
             for (let i = 0; i < steps; i++) {
                 let current_speed = start_speed + (step * i);
-                gcode.push(M2042(current_speed));
+                levels.push(Math.round(current_speed));
             }
-            return gcode;
+            return levels;
         }
         
     },
@@ -536,6 +537,10 @@ const GcodeLibrary = {
 
 function compileGcode(commands) {
     return commands.map(command => command()).join('');
+}
+
+function compileAndSendGcode(commands,seq_id) {
+    X1Plus.sendGcode(compileGcode(commands),seq_id);
 }
 //USAGE:
 //var GcodeLibrary = X1Plus.GcodeGenerator;

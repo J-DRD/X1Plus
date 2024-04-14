@@ -1,6 +1,6 @@
 --- printer_ui-orig/printerui/qml/printer/PrintOptionsPage.qml
 +++ printer_ui/printerui/qml/printer/PrintOptionsPage.qml
-@@ -5,12 +5,24 @@
+@@ -5,12 +5,18 @@
  
  import "qrc:/uibase/qml/widgets"
  import ".."
@@ -8,19 +8,15 @@
  
  Item {
  
--    property var printConfig: PrintManager.printConfig
-+    property var printConfig: X1Plus.Bindings.printConfig()
+     property var printConfig: PrintManager.printConfig
      property var doorOpenLevelModel: [qsTr("notification"), qsTr("pause printing")]
 -
 +    Component.onCompleted: {
 +        if (printConfig == {}){
-+            X1Plus.Bindings._setPrintConfig(PrintManager.printConfig);
-+        }
-+    }
-+    Connections {
-+        target: PrintManager
-+        onPrintConfigChanged: {
-+            PrintManager.printConfig = printConfig;
++           // X1Plus.Bindings.updatePrintConfig();
 +        }
 +    }
 +    
+     ScrollView {
+         id: scroll
+         anchors.fill: parent

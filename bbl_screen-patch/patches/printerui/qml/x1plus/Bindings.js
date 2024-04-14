@@ -8,142 +8,44 @@ var X1Plus = null;
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
 
-var [printConfig, printConfigChanged, _setPrintConfig] = Binding.makeBinding({});
-
-var printConfigActions = {
-    setPrintSensitiveMode: (value) => {
-        let config = printConfig();
-        config.printSensitiveMode = value;
-        _setPrintConfig(config);
-    },
-    getPrintSensitiveMode: () => printConfig().printSensitiveMode,
-
-    setIsBuildPlateMarkerOn: (value) => {
-        let config = printConfig();
-        config.isBuildPlateMarkerOn = value;
-        _setPrintConfig(config);
-    },
-    getIsBuildPlateMarkerOn: () => printConfig().isBuildPlateMarkerOn,
-
-    setIsPrintingMonitorOn: (value) => {
-        let config = printConfig();
-        config.isPrintingMonitorOn = value;
-        _setPrintConfig(config);
-    },
-    getIsPrintingMonitorOn: () => printConfig().isPrintingMonitorOn,
-
-    setIsFirstLayerOn: (value) => {
-        let config = printConfig();
-        config.isFirstLayerOn = value;
-        _setPrintConfig(config);
-    },
-    getIsFirstLayerOn: () => printConfig().isFirstLayerOn,
-
-    setIsStepLossRecoveryOn: (value) => {
-        let config = printConfig();
-        config.isStepLossRecoveryOn = value;
-        _setPrintConfig(config);
-    },
-    getIsStepLossRecoveryOn: () => printConfig().isStepLossRecoveryOn,
-
-    setDoorOpenState: (value) => {
-        let config = printConfig();
-        config.doorOpenState = value;
-        _setPrintConfig(config);
-    },
-    getDoorOpenState: () => printConfig().doorOpenState,
-
-    setIsHotbedForeignOn: (value) => {
-        let config = printConfig();
-        config.isHotbedForeignOn = value;
-        _setPrintConfig(config);
-    },
-    getIsHotbedForeignOn: () => printConfig().isHotbedForeignOn,
-
-    setIsSDCardCache3mfOn: (value) => {
-        let config = printConfig();
-        config.isSDCardCache3mfOn = value;
-        _setPrintConfig(config);
-    },
-    getIsSDCardCache3mfOn: () => printConfig().isSDCardCache3mfOn,
-
-    setIsAllowSkipPartsOn: (value) => {
-        let config = printConfig();
-        config.isAllowSkipPartsOn = value;
-        _setPrintConfig(config);
-    },
-    getIsAllowSkipPartsOn: () => printConfig().isAllowSkipPartsOn,
-};
-
-
 
 var [layerNum, layerNumChanged, _setLayerNum] = Binding.makeBinding(-1);
 var [totalLayerNum, totalLayerNumChanged, _setTotalLayerNum] = Binding.makeBinding(-1);
 
-var layerActions = {
-    setCurrentLayer: () => {
+var printLayer = {
+    setCurrent: () => {
         _setLayerNum(X1Plus.PrintManager.currentTask.layerNum);
     },
-    setTotalLayer: () => {
+    setTotal: () => {
         _setTotalLayerNum(X1Plus.PrintManager.currentTask.totalLayerNum);
     }
 };
 
-var [taskProgress, taskProgressChanged, _setTaskProgress] = Binding.makeBinding(-1);
-var [runout, runoutChanged, _setRunout] = Binding.makeBinding(false);
-var [printPaused, printPausedChanged, _setPrintPaused] = Binding.makeBinding(false);
-var [printIdle, printIdleChanged, _setPrintIdle] = Binding.makeBinding(false);
-var [printState, printStateChanged, _setPrintState] = Binding.makeBinding(false);
-var [printSpeed, printSpeedChanged, _setPrintSpeed] = Binding.makeBinding(100);
-var [speedRampStatus, speedRampStatusChanged, _setSpeedRampStatus] = Binding.makeBinding([]);
-var [speedRamping, speedRampingChanged, _setSpeedRamping] = Binding.makeBinding([]);
 
-var printStatusActions = {
-    setProgress: () => {
-        _setTaskProgress(X1Plus.PrintManager.currentTask.progress);
-    },
-    updateRunout: () => {
-        _setRunout(X1Plus.PrintManager.MS_FILAMENT_LOADED);
-    },
-    updatePaused: () => {
-        _setPrintPaused(X1Plus.PrintManager.currentTask.stage === X1Plus.PrintTask.PAUSED);
-    },
-    updateIdle: () => {
-        _setPrintIdle(X1Plus.PrintManager.currentTask.stage < X1Plus.PrintTask.WORKING && !X1Plus.DeviceManager.power.inputIdle);
-    },
-    updatePrintState: () => {
-        _setPrintState(X1Plus.PrintManager.currentTask.state);
-    },
-    updatePrintSpeed: () => {
-        var _printSpeed = printSpeed();
-        _setPrintSpeed(X1Plus.PrintManager.currentTask.printSpeed);
-    },
+var [printSpeed, printSpeedChanged, _setPrintSpeed] = Binding.makeBinding(-1);
+var [sleep, sleepChanged, _setSleep] = Binding.makeBinding(false);
+var [aboutToSleep, aboutToSleepChanged, _setAboutToSleep] = Binding.makeBinding(false);
+var [isHomed, isHomedChanged, _setIsHomed] = Binding.makeBinding(false);
+var [printIdle, printIdleChanged, _setPrintIdle] = Binding.makeBinding(false);
+var [runout, runoutChanged, _setRunout] = Binding.makeBinding(false);
+
+var printerStatus = {
+    sleepState: (val) => {  _setSleep(val)},
+    aboutToSleepState: (val) => {  _setAboutToSleep(val)},
+    homeState: (pm) => {_setIsHomed((pm.homedState & pm.AXIS_HOMED_ALL) >= pm.AXIS_HOMED_ALL)},
+    printIdleState: (val) => {_setPrintIdle(val)},
+    filamentRunoutState: (pm) => {_setRunout(pm.MS_FILAMENT_LOADED)},
     setPrintSpeedGcode: (val) => {
         let gcode = X1Plus.GcodeGenerator.M2042(val);
         console.log(gcode);
         X1Plus.sendGcode(gcode);
         return gcode;
     },
-    updateRampStatus: (layer,n,start,stop) => {
-        let f = [layer, n, start, stop];
-        _setSpeedRampStatus(f);
+    currentSpeed: (pm) => { _setPrintSpeed(pm.currentTask.printSpeed)},
+    updatePrintSpeed: () => {
+        _setPrintSpeed(X1Plus.PrintManager.currentTask.printSpeed);
     },
-    
-};
-
-var [sleep, sleepChanged, _setSleep] = Binding.makeBinding(false);
-var [aboutToSleep, aboutToSleepChanged, _setAboutToSleep] = Binding.makeBinding(false);
-var [isHomed, isHomedChanged, _setIsHomed] = Binding.makeBinding(false);
-
-var deviceActions = {
-    updateSleep: () => {
-        _setSleep(X1Plus.DeviceManager.power.hasSleep);
-        _setAboutToSleep(X1Plus.DeviceManager.power.aboutToSleep);
-    },
-    updateisHomed: () => {
-        _setIsHomed((X1Plus.PrintManager.homedState & X1Plus.PrintManager.AXIS_HOMED_ALL) === X1Plus.PrintManager.AXIS_HOMED_ALL);
-    }
-};
+}    
 
 
 var heaters = {

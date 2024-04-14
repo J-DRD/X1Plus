@@ -1,6 +1,6 @@
 --- printer_ui-orig/printerui/qml/printer/AdjustPage.qml
 +++ printer_ui/printerui/qml/printer/AdjustPage.qml
-@@ -1,17 +1,21 @@
+@@ -1,17 +1,22 @@
  import QtQuick 2.12
  import QtQuick.Shapes 1.12
 -
@@ -19,34 +19,58 @@
      property var axisController: PrintManager.axisController
 -
 +    property var speedValues: [50,100,125,175]
++    property var speedStr: ["Silent","Normal","Sport","Ludicrous"]
 +    property var targetSpeed:100
-+    property var curSpeed: X1Plus.Bindings.printSpeed()
++    property var isHomed:  X1Plus.Bindings.printerStatus.homeState(PrintManager)
 +    
      property var speedAdjust: QtObject {
          property string name: "speed"
          property int currentTemp: PrintManager.currentTask.printSpeed
-@@ -369,12 +373,14 @@
+@@ -20,7 +25,7 @@
+         property string errorMsg
+         property bool visible: true
+     }
+-
++    
+     property var tempModel: [
+         heaters.hotend,
+         heaters.heatbed,
+@@ -55,7 +60,10 @@
+         AxisItem { name: "10"; tip: "plate_down"
+             axis: AxisController.AxisZ; dir: AxisController.Increase; unit: AxisController.MM_10}
+     }
+-
++    Component.onCompleted: {
++        X1Plus.Bindings.printerStatus.updatePrintSpeed();
++        targetSpeed = X1Plus.Bindings.printSpeed()
++    }
+     MarginPanel {
+         id: ctrlPanel
+         width: 295
+@@ -163,7 +171,6 @@
+                 }
+             }
+         }
+-
+         Item {
+             id: zAxis
+             x: 553
+@@ -368,13 +375,7 @@
+         onReleased: {
              if(speedPad.target) {
                  speedPad.target = null
-                 // here only when close "speedPad" then upload once the event track msg of "speedMode"
+-                // here only when close "speedPad" then upload once the event track msg of "speedMode"
 -                EventTrack.itemName = "speedAdjust"
 -                EventTrack.extraInfo = {
 -                    "control": "Choise",
 -                    "currentIndex": speedPad.speedMode,
 -                    "currentItemText": PrintManager.currentTask.printSpeedModeStrings[speedPad.speedMode]
 -                }
-+                // EventTrack.itemName = "speedAdjust"
-+                // EventTrack.extraInfo = {
-+                //     "control": "Choise",
-+                //     "currentIndex": speedPad.speedMode,
-+                //     "currentItemText": PrintManager.currentTask.printSpeedModeStrings[speedPad.speedMode]
-+                // }
-+                PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
-+                X1Plus.Bindings.printStatusActions.setPrintSpeedGcode(targetSpeed);
++                targetSpeed = X1Plus.Bindings.printSpeed()
                  speedPad_close();
              }
              fanPad.target = null
-@@ -384,63 +390,373 @@
+@@ -384,63 +385,279 @@
  
      Rectangle {
          id: speedPad
@@ -58,7 +82,6 @@
          visible: target != null
 -
 +        anchors.fill: axisPanel
-+        
          property var target: null
 -        //property var speeds: [180, 140, 100, 60]
 -        //property int speed: speeds[speedMode]
@@ -68,30 +91,39 @@
 -        onTargetChanged: {
 -            if (target != null)
 -                speedMode = PrintManager.currentTask.printSpeedMode
--        }
--
++        property alias speed: dial.value
++        property bool ramping: false
++        
++        function closestLevel(value) {
++            var closestIndex = 0; 
++            var minDiff = Math.abs(value - speedValues[0]);
++
++            for (var i = 1; i < speedValues.length; i++) {
++                var diff = Math.abs(value - speedValues[i]);
++                if (diff < minDiff) {
++                    minDiff = diff;
++                    closestIndex = i;
++                }
++            }
++            return speedStr[closestIndex];
+         }
+ 
 -        onSpeedModeChanged: {
 -            if (target != null) {
 -                PrintManager.currentTask.printSpeedMode = speedMode
--            }
-+        property alias speed: slider.value
-+        
 +        onSpeedChanged:{
-+            if (speed < 30 || speed > 180){
-+                speed = 100;
-+            }
-+            targetSpeed = speed;
-+        }
++            if (target!=null){
++                targetSpeed = speed;
+             }
+         }
+-
 +        onTargetChanged:{
 +            if (target!=null){
 +                speed = targetSpeed;
-+            }
++                X1Plus.Bindings.printerStatus.updatePrintSpeed();
++                canvas2.requestPaint();
++            } 
 +        }
-+        function calculateYPosition(value) {
-+            var relativePosition = (value - slider.from) / (slider.to - slider.from);
-+            return slider.handle.height / 2 + (slider.height - slider.handle.height) * (1 - relativePosition);
-         }
--
          Rectangle {
              width: 540
              height: 591
@@ -103,265 +135,203 @@
                  anchors.fill: parent
                  onPressed: mouse.accepted = true
              }
--
-             Text {
--                x: 50
--                y: 18
--                font: Fonts.body_30
--                color: Colors.gray_300
--                text: qsTr("Printing speed")
--            }
--
--            ZStepBar {
--                id: stepBar
--                width: parent.width - 260
--                x: 160
--                y: 120
--                stepOffset: 127
--                titleOffset: 60
--                barColor: Colors.gray_800
--                thumbIcon: "../../icon/thumb.svg"
--                tipColor: Colors.gray_400
--                titleColor: StateColor {
--                    StateColorItem { color: "brand"; states: StateColor.Checked }
--                    StateColorItem { color: "gray_200"; states: StateColor.Normal }
++            Text {
 +                id: title
-+                text: qsTr("Print Speed")
++                text:qsTr("Print Speed")
 +                font.pixelSize: 36
 +                color: "white"
 +                anchors.horizontalCenter: parent.horizontalCenter
 +                anchors.top: parent.top
 +                anchors.topMargin: 20
 +            }
-+            Slider {
-+                id: slider
-+                orientation: Qt.Vertical
++            Dial {
++                id: dial
++                width: 190*1.3
++                height: 190*1.3
 +                from: 30
-+                to: 180
-+                stepSize: 2
-+                value: curSpeed
-+                anchors.horizontalCenter: parent.horizontalCenter
-+                anchors.top: title.bottom
-+                anchors.topMargin: 35
-+                height: parent.height - 275
-+                width: 40
++                to:180
++                value: X1Plus.Bindings.printSpeed()
++                anchors.centerIn: parent
++                stepSize:2
++
 +                onValueChanged: {
-+                    canvas.updateSpeedPositions();
-+                    if (!slider.pressed) {
-+                        targetSpeed = value;
-+                        console.log(targetSpeed,PrintManager.currentTask.printSpeed);
-+                    }
++                    dial.value = Math.round(dial.value / dial.stepSize) * dial.stepSize;
++                    targetSpeed = dial.value;
 +                }
++                
 +                background: Rectangle {
-+                    id: sliderBackground
-+                    height: parent.height
-+                    width: 40
-+                    anchors.fill: slider
-+                    color: "#000000" 
-+                    radius: width/2
-+                    Rectangle {
-+                        id: filledTrack
-+                        width: parent.width
-+                        height: (slider.height - handle.height/2) * ((slider.value - slider.from) / (slider.to - slider.from))+15
-+                        color: Colors.brand
-+                        radius:width/2
-+                        anchors.bottom: parent.bottom
-+                    }
-+                } 
-+                handle: Rectangle {
-+                    
-+                    id: handle
-+                    y: (slider.height - height) * (1 - ((slider.value - slider.from) / (slider.to - slider.from)))
-+                    implicitWidth: 56
-+                    implicitHeight: 56
-+                    color: slider.pressed ? "#f0f0f0" : "#f6f6f6"
-+                    border.color: "black"
-+                    anchors.horizontalCenter: parent.horizontalCenter
-+                    radius: width / 2
-+                }
-+            }
-+            Rectangle {
-+                width: 60
-+                height: 60
-+                color: "transparent" 
-+                border.color: "white"
-+                radius: 20 
-+                anchors.right: slider.left
-+                anchors.rightMargin: 70
-+                anchors.verticalCenter: parent.verticalCenter
-+                Text {
-+                    text: "±" + slider.stepSize + "%"
-+                    anchors.centerIn: parent
-+                    color: "white"
-+                    font.pixelSize: 24
-+                }
-+    
-+                MouseArea {
++                    id: background2
++                    implicitWidth: 190*1.3
++                    implicitHeight: 190*1.3
++                    width:implicitWidth
++                    height:implicitHeight
++                    color: "#2F302F"//Colors.gray_400
++                    radius: implicitWidth/2
 +                    anchors.fill: parent
-+                    onClicked: {
-+                        slider.stepSize = slider.stepSize === 2 ? 10 : 2;
++                    
++                    
++                    Canvas {
++                        id: canvas2
++                        anchors.fill: parent
++                        onPaint: {
++                            //Draw the tickmarks for the Dial type, with text labels
++                            var ctx = getContext("2d");
++                            var centerX = width / 2;
++                            var centerY = height / 2;
++                            var radius = Math.min(centerX, centerY) - 5; //tick positioning
++                            ctx.clearRect(0, 0, width, height);
++
++                            var startAngle = 130;
++                            var endAngle =270;
++                            var range = dial.to - dial.from;
++                            var stepAngle = (startAngle - endAngle) / range * dial.stepSize;
++                
++                            for (var i = 0; i <= range; i += dial.stepSize) {
++                                var angle = (startAngle - i * stepAngle) * Math.PI / 180;
++                                var outerX = centerX + radius * Math.cos(angle);
++                                var outerY = centerY + radius * Math.sin(angle);
++                                var innerX = centerX + (radius - 20) * Math.cos(angle); //adjust tick length
++                                var innerY = centerY + (radius - 20) * Math.sin(angle);
++
++                                ctx.beginPath();
++                                ctx.moveTo(outerX, outerY);
++                                ctx.lineTo(innerX, innerY);
++                                if (dial.from + i === Math.round(X1Plus.Bindings.printSpeed())){
++                                    ctx.strokeStyle = "#00ff00";
++                                } else if (dial.from + i === Math.round(targetSpeed) && speedPad.ramping){
++                                    ctx.strokeStyle = "#FF0000";
++                                } else {
++                                    ctx.strokeStyle = "#6B6B6A";
++                                }
++                                ctx.lineWidth = 2;
++                                ctx.stroke();
++
++                                if (i % 10 === 0) {// number of labels
++                                    var labelRadius = radius -30; //label position
++                                    var labelX = centerX + labelRadius * Math.cos(angle) - 10; 
++                                    var labelY = centerY + labelRadius * Math.sin(angle) + 5;
++                                    
++                                    ctx.fillStyle = "#6B6B6A"; //label color
++                                    ctx.fillText(dial.from + i, labelX, labelY);
++                                }
++                            }
++                        }
 +                    }
 +                }
+ 
++                handle: Rectangle {
++                    id: hand //dial handle
++                    width: 30
++                    height: 30
++                    radius: 15
++                    color: dial.pressed ?"#4E4F4E": "#3A3B3A" 
++                    border.color: "#eb6600"
++                    border.width: 2
++                    x: background2.x + background2.width / 2 - hand.width / 2
++                    y: background2.y + background2.height / 2 - hand.height / 2
++                     transform: [
++                        Translate {
++                            y: -Math.min(background2.width, background2.height) * 0.5 + hand.height / 2
++                        },
++                        Rotation {
++                            angle: dial.angle
++                            origin.x: hand.width / 2
++                            origin.y: hand.height / 2
++                        }
++                    ]
++                }
++                
++                Text {
++                    text: qsTr("Speed: %1\n\nAcc Mag: %2\nFeed rate: %3\nR: %4").arg(dial.value)
++                        .arg(X1Plus.GcodeGenerator.speed_interp.acceleration_magnitude( X1Plus.GcodeGenerator.speed_interp.speed_fraction(dial.value)).toFixed(2))
++                        .arg(X1Plus.GcodeGenerator.speed_interp.speed_fraction(dial.value).toFixed(1))
++                        .arg(X1Plus.GcodeGenerator.speed_interp.feed_rate(dial.value).toFixed(2))
++                    color: "white"
++                    font.pixelSize: 14
++                    anchors.centerIn: dial
++                  
++                }
 +            }
-+            Text {
-+                id: layerLbl
-+                text: qsTr("Ramp from:")
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.left: parent.left
-+                anchors.leftMargin: 20
-+                anchors.top: slider.top
-+                anchors.topMargin:40
-+            }
-+            Text {
-+                id: layernumlbl
-+                text: X1Plus.Bindings.layerNum()
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.left: parent.left
-+                anchors.leftMargin: 20
-+                anchors.top: layerLbl.bottom
-+                anchors.topMargin:25
-+            }
-+            Text {
-+                id: toLayerLbl
-+                text: qsTr("Ramp to:")
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.left: parent.left
-+                anchors.leftMargin: 20
-+                anchors.top: layernumlbl.bottom
-+                anchors.topMargin:25
-+            }
-+            Text {
-+                id: toLayerNumLbl
-+                text: X1Plus.Bindings.layerNum() + 10
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.left: parent.left
-+                anchors.leftMargin: 20
-+                anchors.top: toLayerLbl.bottom
-+                anchors.topMargin:25
-+            }
-+            Text {
-+                id: accLbl
-+                text: qsTr("acc_mag ") + X1Plus.GcodeGenerator.speed_interp.acceleration_magnitude( X1Plus.GcodeGenerator.speed_interp.speed_fraction(slider.value)).toFixed(2)
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.left: parent.left
-+                anchors.leftMargin: 20
-+                anchors.top: toLayerNumLbl.bottom
-+                anchors.topMargin:25
-+            }
-+            Text {
-+                id: rLbl
-+                text: qsTr("R ") + X1Plus.GcodeGenerator.speed_interp.speed_fraction(slider.value).toFixed(1)
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.left: parent.left
-+                anchors.leftMargin: 20
-+                anchors.top: accLbl.bottom
-+                anchors.topMargin:25
-+            }
-+            Text {
-+                id: frlbl
-+                text: qsTr("FR ") + X1Plus.GcodeGenerator.speed_interp.feed_rate(slider.value).toFixed(2)
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.left: parent.left
-+                anchors.leftMargin: 20
-+                anchors.top: rLbl.bottom
-+                anchors.topMargin:25
-+            }
-+            
-+            
-+            Text {
++          
+             Text {
+-                x: 50
+-                y: 18
+-                font: Fonts.body_30
+-                color: Colors.gray_300
+-                text: qsTr("Printing speed")
 +                id: currentSpeedLabel
-+                text: qsTr("Current Speed")
++                text: qsTr("Current Speed\n%1%").arg(X1Plus.Bindings.printSpeed().toFixed(1))
 +                color: "white"
 +                font.pixelSize: 18
 +                anchors.right: parent.right
 +                anchors.rightMargin: 20
-+                anchors.top: slider.top
-+                anchors.topMargin:40
-+            }
-+            Text {
-+                id: currentSpeedText
-+                text: curSpeed.toFixed(1) + "%"
-+                font.pixelSize: 24
-+                color: "white"
-+                anchors.top: currentSpeedLabel.bottom
-+                anchors.right: currentSpeedLabel.right
-+                anchors.topMargin: 5
-+            }
++                anchors.top: parent.top
++                anchors.topMargin:591/2-70
+             }
++            
 +            Text {
 +                id: targetSpeedLabel
-+                text: qsTr("Target Speed")
++                text: qsTr("Target Speed\n%1%").arg(targetSpeed.toFixed(1).toString())
 +                color: "white"
 +                font.pixelSize: 18
-+                anchors.top: currentSpeedText.bottom
-+                anchors.right: currentSpeedText.right
++                anchors.top: currentSpeedLabel.bottom
++                anchors.right: currentSpeedLabel.right
 +                anchors.topMargin: 20
 +            }
++           
 +            Text {
-+                id: targetSpeedText
-+                text: targetSpeed.toFixed(1).toString() +"%"
-+                font.pixelSize: 24
-+                color: "white"
-+                anchors.top: targetSpeedLabel.bottom
-+                anchors.right: targetSpeedLabel.right
-+                anchors.topMargin: 5
-+            }
-+            Text {
-+                id: printEtaLabel
-+                text: qsTr("Print ETA")
++                id: closestLbl
++                text: qsTr("'%1' mode").arg(speedPad.closestLevel(dial.value))
 +                color: "white"
 +                font.pixelSize: 18
-+                anchors.top: targetSpeedText.bottom
-+                anchors.right: targetSpeedText.right
-+                anchors.topMargin: 20
++                anchors.bottom: dial.top
++                anchors.horizontalCenter: parent.horizontalCenter
++                anchors.bottomMargin: 30
++                horizontalAlignment: Text.AlignHCenter
 +            }
-+            Text {
-+                id: printEtaText
-+                text: Printer.durationString(PrintManager.currentTask.remainTime)
-+                font.pixelSize: 24
-+                color: "white"
-+                anchors.top: printEtaLabel.bottom
-+                anchors.right: printEtaLabel.right
-+                anchors.topMargin: 5
-+            }
++   
 +            Item {
 +                id: buttonsContainer
 +                width: parent.width
 +                height: 170
 +                anchors.horizontalCenter: parent.horizontalCenter
-+                anchors.top: slider.bottom
++                anchors.top: dial.bottom
 +                anchors.topMargin: 30
-+                
++              
 +                Row {
 +                    spacing: 15 
-+                    anchors.horizontalCenter: parent.horizontalCenter             
++                    anchors.horizontalCenter: parent.horizontalCenter      
++                    visible:true       
 +                    Rectangle {
 +                        id: rampButton
 +                        width: 145+70
 +                        height: 125
-+                        //color: "#00ad42"//"#eb6600"
-+                        color: Colors.gray_600
++                        color: (speedPad.ramping) ? "#2F302F": Colors.gray_600
 +                        radius: 25
++                
 +                        Text {
-+                            text: qsTr("Ramp")
++                            text: (speedPad.ramping) ? qsTr("Ramp: ON") : qsTr("Ramp: OFF")
 +                            anchors.centerIn: parent
 +                            color: "white"
 +                            font.pixelSize: 30 
 +                        }
-+
++                        
 +                        MouseArea {
 +                            anchors.fill: parent
 +                            onClicked: {
-+                                let gcode = X1Plus.GcodeGenerator.GcodeLibrary.macros.rampSpeedLevel(curSpeed,targetSpeed,10);
-+                                console.log(gcode);
-+                                X1Plus.Bindings.printStatusActions.updateRampStatus(layerNum,10,curSpeed,targetSpeed);
++                                let range = Math.abs(X1Plus.Bindings.printSpeed()-targetSpeed);
++                                speedPad.ramping = !(speedPad.ramping);
++                                canvas2.requestPaint();
++                                /* 
++                                    1. need a way to input layers, ie 'Ramp over x layers'
++                                    2. Determine a step size that will ensure all ramp levels are even integers (printer does not report odd numbered speed values)
++                                            (range % steps) == 0
++                                    3. Set a property binding to tell the printer where to start ramping
++                                    4. Use X1Plus.GcodeGenerator.GcodeLibrary.macros.rampSpeedLevel(start_speed,end_speed,steps)
++                                    5. Use onLayerNumChanged{} to send gcode if the layer number coincides with the step size
++                                */
 +                            }
++                           
 +                            onEntered: parent.opacity = 0.8
 +                            onExited: parent.opacity = 1.0
 +                        }
@@ -376,8 +346,6 @@
 +                        width: 145+70
 +                        height: 125
 +                        color: Colors.gray_600
-+                    // color: "#00ad42"//Colors.gray_300
-+                        //border.color: Colors.gray_100
 +                        radius: 25
 +
 +                        Text {
@@ -387,82 +355,38 @@
 +                            font.pixelSize: 30
 +                        
 +                        }
-+
+ 
+-            ZStepBar {
+-                id: stepBar
+-                width: parent.width - 260
+-                x: 160
+-                y: 120
+-                stepOffset: 127
+-                titleOffset: 60
+-                barColor: Colors.gray_800
+-                thumbIcon: "../../icon/thumb.svg"
+-                tipColor: Colors.gray_400
+-                titleColor: StateColor {
+-                    StateColorItem { color: "brand"; states: StateColor.Checked }
+-                    StateColorItem { color: "gray_200"; states: StateColor.Normal }
 +                        MouseArea {
 +                            anchors.fill: parent
 +                            onClicked: {
-+                                X1Plus.Bindings.printStatusActions.setPrintSpeedGcode(speedPad.speed);
-+                                X1Plus.Bindings.printStatusActions.updatePrintSpeed();
++                                X1Plus.Bindings.printerStatus.setPrintSpeedGcode(speedPad.speed);
++                                PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
 +                                speedPad.target = null;
-+                                
 +                            }
 +                            onEntered: parent.opacity = 0.8
 +                            onExited: parent.opacity = 1.0
 +                        }
 +                    }
-+                }
-+            }
-+            Rectangle {
-+                id: labelRect
-+                color:"transparent"
-+                anchors.fill: slider
-+                Repeater {
-+                    model: speedValues
-+                    delegate: Text {
-+                        text: modelData + "%"
-+                        color: "white"
-+                        font.pixelSize: 24
-+                        anchors.right: labelRect.left
-+                        anchors.rightMargin: 10
-+                        horizontalAlignment: Text.AlignHCenter
-+                        verticalAlignment: Text.AlignVCenter
-+                        y : speedPad.calculateYPosition(modelData) - height / 2     
-+                    }
-+                }
-+                Canvas {
-+                    id: canvas
-+                    anchors.fill: parent
-+                    property var speedPositions: []
-+
-+                    function updateSpeedPositions() {
-+                        var newPositions = [];
-+                        for (var i = 0; i < speedValues.length; i++) {
-+                            var yPos = speedPad.calculateYPosition(speedValues[i]);
-+                            newPositions.push({ x: slider.width / 2, y: yPos });
-+                        }
-+                        speedPositions = newPositions;
-+                        requestPaint();
-+                    }
-+    
-+                    onPaint: {
-+                        var ctx = getContext("2d");
-+                        ctx.clearRect(0, 0, width, height); 
-+
-+                        ctx.shadowOffsetX = 2;
-+                        ctx.shadowOffsetY = 2;
-+                        ctx.shadowBlur = 4;
-+                        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-+
-+                        speedPositions.forEach(function(pos) {
-+                            ctx.fillStyle = "#eb6600";
-+                            ctx.beginPath();
-+                            ctx.arc(pos.x, pos.y, 10, 0, 2 * Math.PI);
-+                            ctx.fill();
-+                        });
-+
-+                        ctx.shadowOffsetX = 0;
-+                        ctx.shadowOffsetY = 0;
-+                        ctx.shadowBlur = 0;
-+                        ctx.shadowColor = "transparent";
-+                    }
-+                    Component.onCompleted: requestPaint()
                  }
 -                titleFont: Fonts.body_36
 -                steps: PrintManager.currentTask.printSpeedModeStrings
              }
          }
      }
-@@ -498,7 +814,7 @@
+@@ -498,7 +715,7 @@
              EventTrack.itemName: "tempAndSpeed_" + modelData.name
  
              Binding on text {
@@ -471,3 +395,21 @@
                 when: speedPad.target == modelData
              }
  
+@@ -800,7 +1017,7 @@
+                 EventTrack.itemName: "bigSector_" + modelData.name
+ 
+                 onClicked: {
+-                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) != PrintManager.AXIS_HOMED_ALL) {
++                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) !== PrintManager.AXIS_HOMED_ALL) {
+                         limitFrame()
+                     }
+                     axisController.moveAxis(modelData.axis, modelData.dir, AxisController.MM_10)
+@@ -818,7 +1035,7 @@
+                 EventTrack.itemName: "smallSector_" + modelData.name
+ 
+                 onClicked: {
+-                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) != PrintManager.AXIS_HOMED_ALL) {
++                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) !== PrintManager.AXIS_HOMED_ALL) {
+                         limitFrame()
+                     }
+                     axisController.moveAxis(modelData.axis, modelData.dir, AxisController.MM)
