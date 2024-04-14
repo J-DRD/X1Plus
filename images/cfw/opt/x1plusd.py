@@ -2,7 +2,7 @@
 import os, dds
 import copy
 from functools import lru_cache 
-from threading import Thread
+from pathlib import Path
 import json
 import subprocess
 import traceback
@@ -100,31 +100,56 @@ class SettingsService:
         },
         "quick_boot": False,
         "dump_emmc": False,
-        "sdcard_syslog": False
+        "sdcard_syslog": False,
+        "perf_log": False
     }
 
     def __init__(self):
-        settings_dir = f"/mnt/sdcard/x1plus/printers/{_get_sn()}"
-        self.filename = f"{settings_dir}/settings.json"
-        os.makedirs(settings_dir, exist_ok = True)
+        self.settings_dir = f"/mnt/sdcard/x1plus/printers/{_get_sn()}"
+        self.filename = f"{self.settings_dir}/settings.json"
+        os.makedirs(self.settings_dir, exist_ok = True)
     
         # Before we startup, do we have our settings file? Try to read, create if it doesn't exist.
         try:
             with open(self.filename, 'r') as fh:
                 self.settings = json.load(fh)
         except FileNotFoundError as exc:
-            # TODO: log to syslog
             x1pusd_log.debug("x1plusd: settings file not found. Creating one with defaults")
             print("Settings file does not exist, creating with defaults...")
-            # TODO: Add logic here (call helper function) to check for flag files, 
-            # and adjust our defaults to match
-            self.settings = copy.deepcopy(SettingsService.DEFAULT_X1PLUS_SETTINGS)
+            self.settings = self._migrate_old_settings()
             self._save()
             dds_report({'settings': {'changes': self.settings}})
 
         # register it...
         dds_handlers['settings'] = self._handle
-        
+
+    def _migrate_old_settings(self):
+        """
+        Used to migrate init.d flag files, AND custom x1plus settings, to our new json on first run
+        """
+        defaults = copy.deepcopy(SettingsService.DEFAULT_X1PLUS_SETTINGS)
+
+        # quick boot
+        if os.path.exists( f"{self.settings_dir}/quick-boot"):
+            defaults.update({"quick_boot": True})
+            Path(f"{self.settings_dir}/quick-boot").unlink(missing_ok=True)
+        # dump emmc
+        if os.path.exists( f"{self.settings_dir}/dump-emmc"):
+            defaults.update({"dump_emmc": True})
+            Path(f"{self.settings_dir}/dump-emmc").unlink(missing_ok=True)
+        # syslog to sd
+        if os.path.exists( f"{self.settings_dir}/logsd"):
+            defaults.update({"sdcard_syslog": True})
+            Path(f"{self.settings_dir}/logsd").unlink(missing_ok=True)
+        # performance logging (debugging)
+        if os.path.exists( f"{self.settings_dir}/perf_log"):
+            defaults.update({"perf_log": True})
+            Path(f"{self.settings_dir}/perf_log").unlink(missing_ok=True)
+
+        # TODO: Document and add printer.json settings migration logic here
+
+        return defaults
+    
     def _save(self):
         # XXX: atomically rename this
         
