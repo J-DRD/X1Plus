@@ -111,13 +111,23 @@ function _saveSettings() {
 }
 
 var lastEventTime = null;
-/**
- * handle button action given dds message
- * @param {string} button - The name of the button ("power" or "estop").
- * @param {string} pressType - The type of press ("shortPress" or "longPress").
+/** handle button action given dds message
+ * DDS message: topic = device/x1plus, message = gpio: {button: "power", event: "shortPress"}
+ * @param {object} datum - The object containing the DDS message
  */
-function _handleButton(button, event) {
+function _handleButton(datum) {
     var _gpio = keyBindings();
+    const button = "";
+    const event = "";
+    
+    if (datum.gpio && datum.gpio.button && datum.gpio.event){
+        button = datum.gpio.button;
+        event = datum.gpio.event;
+    } else {
+        console.log("[x1p] gpiokeys dds message invalid", datum);
+        return;
+    }
+    
     var config = getBinding(button, event);
     var currentTime = new Date().getTime();
 
@@ -154,10 +164,4 @@ function _handleButton(button, event) {
 
 function awaken(){
     _loadSettings();
-    X1Plus.DDS.registerHandler("device/x1plus", function(datum) {
-        console.log("device/x1plus", datum);
-            if (datum.gpio) {
-                _handleButton(datum.gpio.button, datum.gpio.event);
-            }
-    });
 }

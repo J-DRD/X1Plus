@@ -6,6 +6,7 @@
 .import "./x1plus/MeshCalcs.js" as X1PlusMeshCalcs
 .import "./x1plus/Binding.js" as X1PlusBinding
 .import "./x1plus/GpioKeys.js" as X1PlusGpioKeys
+.import "./x1plus/Settings.js" as X1PlusSettings
 .import "./x1plus/GcodeGenerator.js" as X1PlusGcodeGenerator
 .import "./x1plus/BedMeshCalibration.js" as X1PlusBedMeshCalibration
 .import "./x1plus/ShaperCalibration.js" as X1PlusShaperCalibration
@@ -51,6 +52,8 @@ X1Plus.GpioKeys = X1PlusGpioKeys;
 var GpioKeys  = X1PlusGpioKeys;
 X1Plus.DBus = X1PlusDBus;
 var DBus = X1PlusDBus;
+X1Plus.Settings = X1PlusSettings;
+var Settings  = X1PlusSettings;
 
 Stats.X1Plus = X1Plus;
 DDS.X1Plus = X1Plus;
@@ -58,6 +61,7 @@ BedMeshCalibration.X1Plus = X1Plus;
 ShaperCalibration.X1Plus = X1Plus;
 GpioKeys.X1Plus = X1Plus;
 DBus.X1Plus = X1Plus;
+Settings.X1Plus = X1Plus;
 
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
@@ -101,14 +105,9 @@ function atomicSaveJson(path, json) {
 }
 X1Plus.atomicSaveJson = atomicSaveJson;
 
-function sendGcode(gcode_line,seq_id = 0){
-	
-	var payload = {
-		command: "gcode_line",
-		param: gcode_line,
-		sequence_id: seq_id
-	};
-	DDS.publish("device/request/print", payload);
+function sendGcode(gcode_line, seq_id=0){
+	var payload = DDS.ddsMsg.publish_gcode.msg(gcode_line, seq_id);
+	DDS.publish(DDS.ddsMsg.publish_gcode.topic(), payload);
 	console.log("[x1p] Gcode published:", JSON.stringify(payload));
 }
 X1Plus.sendGcode = sendGcode;
