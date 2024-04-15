@@ -15,19 +15,21 @@ const _settingsFile = "settings.json";
 
 /**
  * DDS topic: defined as device/x1plus/request and device/x1plus/report in x1plusd.py
-*however the subtopic we have interposed is device/x1plus. all custom subtopics must be added to interpose.cpp! 
-*To fix this, we can either adjust the topic to device/x1plus, or we can adjust interpose.cpp
-*like so: 
+* however the subtopic we have interposed is device/x1plus. all custom subtopics must be added to interpose.cpp! 
+* Solution #1: Use the topic device/x1plus with no subtopics
+* Solution #2: add subtopics to interpose, ie
 *   if (i == (DdsNode_orig_get_sub_topic_count(p) + 2)) {
 *        return "device/report/x1plus";
 *   }
-*
 */
-const topicReq = 'device/x1plus';
+const topicReq = X1Plus.DDS.ddsMsg.get_setting.topic;
 
 
 var [callBackId, _callBackIdChanged, _setCallBackId] = Binding.makeBinding(-1);
-
+/**
+ * The most basic callback id system. +1 every time a message is published. 
+ * We shouldn't generate enough messages to require anything more complex
+ */
 function nextCallBackId() {
   let cId = callBackId();
   if (cId == -1){
@@ -37,14 +39,23 @@ function nextCallBackId() {
   }
 }
 
+/** setting = getSetting(jsonKey, defaultValue)
+ * currently only returns the value of the binding. 
+ * Once we have our own `forward` service that publishes DDS 
+ * messages to MQTT, we can start publishing the output of getSetting
+ * to DDS. This will provide HA/3rd party app/print farm users MQTT
+ * access to settings
+ */
 function getSetting(key, defaultVal){
-  let db = _db();
-  return db.key || defaultVal;
+  return _db().key || defaultVal
 }
 X1Plus.getSetting = getSetting;
 
 
-
+/** putSetting(jsonKey, value)
+ * update property binding and publish the results to DDS
+ * x1plusd will do the rest.
+ */
 function putSetting(key, val){
 	X1Plus._DeviceManager.putSetting(key, val);
   _db().key = val;
@@ -53,21 +64,6 @@ function putSetting(key, val){
 }   
 X1Plus.putSetting = putSetting;
 
-
-/**
- * DDS message format - adjust as needed. getSetting command is for MQTT integration.
- * Currently we still need a way of forwarding MQTT messages so they end up here. This
- * is a secondary getter function for use with HA or other 3rd party applications
- * */
-
-const messages = {
-  getSetting: (_key, _id) => {  // device/x1plus
-    return {settings:"getSetting", param:{key:_key,id: callBackId()}}
-  },
-  putSetting: (_key, _val, _id) => { // device/x1plus
-    return {settings:"putSetting", param:{key:_key,value: _val, id: callBackId()}}
-  },
-}
 
 function loadDatabase(){
   let db = {}
@@ -88,6 +84,9 @@ function awaken() {
 	console.log("Settings.js awakening");
   loadDatabase();
 }
+
+
+
 
 //Leaving this here for reference only
 // const migrate = {

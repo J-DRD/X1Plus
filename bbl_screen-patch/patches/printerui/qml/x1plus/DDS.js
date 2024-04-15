@@ -82,20 +82,38 @@ registerHandler(ddsMsg.push_status.topic(), function(datum) {
  * Gpiokeys.py
  * {gpio: {button: "power", event: "shortPress"}}
  * */
-registerHandler(ddsMsg.x1p.topic(), function(datum) {
+registerHandler(ddsMsg.x1p.topic, function(datum) {
     if (datum.gpio){
         X1Plus.Gpiokeys._handleButton(datum);
-    } else if (datum.settings && datum.param) { //Settings
-        var settings = datum.param;
-        if (datum.settings == "getSetting") {  //See note in Settings.js about this DDS getSetting command
-            //X1Plus.Settings.getSetting()
+    } else if (datum.settings && datum.key) { /* Settings - format not finalized! */
+        if (datum.settings == "getSetting") {  
+            X1Plus.Settings.getSetting(datum.key);
         } else if (datum.settings == "putSetting") { 
-            //X1Plus.Settings.putSetting()
+            X1Plus.Settings.putSetting(datum.key,datum.value);
         }
     }
 });
 
+/**
+ * DDS topics and message creation
+ * Call this object from anywhere in QML to generate topics and formatted payloads
+ * Usage:
+ * let version = ddsMsg.version_request;
+ * DDS.publish(version.topic, version.msg(0))
+ */
 var ddsMsg = {
+    get_setting:{ 
+        topic: () => "device/x1plus",
+        msg: (_key,cId) => {
+            return {settings: "getSetting", key:_key, sequence_id: cId };
+        }
+    },
+    put_setting:{
+        topic: () => "device/x1plus",
+        msg: (_key,_val,cId) => {
+            return {settings: "putSetting",key:_key, value:_val, sequence_id: cId };
+        }
+    },
     version_report:{
         topic: () => "device/report/info",
     },
