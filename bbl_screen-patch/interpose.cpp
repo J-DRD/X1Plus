@@ -23,9 +23,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <QtCore/QObject>
-#include <QtCore/QFileSystemWatcher>
-#include <QtCore/QJsonDocument>
-#include <QtCore/QJsonObject>
 #include <QtCore/QSettings>
 #include <QtQml/qqml.h>
 #include <QtQml/qjsengine.h>
@@ -199,7 +196,7 @@ eject:
     }
     
     /* XHRs are not as reliable as we might like, and sort of clunky.  So we do it this way. */
-    Q_INVOKABLE static QByteArray readFile(const QString &filename) {
+    Q_INVOKABLE QByteArray readFile(QString filename) {
         std::string str = filename.toStdString();
         const char *s = str.c_str();
         int fd = open(s, O_RDONLY);
@@ -232,8 +229,6 @@ eject:
     }
 
     Q_INVOKABLE void atomicSaveFile(QString filename, const QByteArray &buf) {
-
-    Q_INVOKABLE static void atomicSaveFile(QString filename, const QByteArray &buf) {
         QFileInfo fileInfo(filename);
         QString tempFilename = fileInfo.absoluteDir().absoluteFilePath("temp_" + fileInfo.fileName());
 
@@ -282,72 +277,6 @@ public:
 };
 static X1PlusNativeClass native;
 
-/* *** SettingsManager***
-* Settings class for loading and saving device settings. Defines X1PlusNativeClass
-* as a friend class so it can utilize X1PlusNativeClass::atomicSaveFile and X1PlusNativeClass::readFile
-* Saving emits a signal (bool success), and loading emits a signal (bool success)
-* A QFileSystemWatcher is set up to emit signals when the settings file is changed
- */
-class SettingsManager : public QObject {
-    Q_OBJECT
-    friend class X1PlusNativeClass;
-
-public:
-    explicit SettingsManager(QObject *parent = nullptr) : QObject(parent) {}
-    
-    Q_INVOKABLE void saveSettings(const QString &filename, const QJsonObject& settings) {
-        QString settingsData = QString::fromUtf8(QJsonDocument(settings).toJson());
-        try {
-            X1PlusNativeClass::atomicSaveFile(filename, settingsData.toLocal8Bit());
-            manageFileWatcher(filename);
-            emit settingsSaved(true);
-        } catch (const std::exception& e) {
-            qWarning() << "Failed to save settings to" << filename << ":" << e.what();
-            emit settingsSaved(false);
-        }
-    }
-
-    Q_INVOKABLE QByteArray loadSettings(const QString &filename) {
-        try {
-            QByteArray settingsData = X1PlusNativeClass::readFile(filename);
-            // QJsonObject cannot be converted by JS, otherwise we'd use QJsonDocument::fromJson() here
-            qDebug() << "Attempting to read data from file:" << filename;
-            // qDebug() << "Data read (" << settingsData.size() << " bytes):" << settingsData;
-
-            if (!settingsData.isEmpty()) {
-                emit settingsLoaded(true);
-                return settingsData;
-            } else {
-                qDebug() << "No data could be read or file is empty.";
-                emit settingsLoaded(false);
-                return QByteArray();
-            }
-        } catch (const std::exception& e) {
-            qDebug() << "Exception caught while reading the file:" << e.what();
-            emit settingsLoaded(false);
-            return QByteArray();
-        }
-    }
-
-signals:
-    void settingsChanged(const QString &filename);
-    void settingsSaved(bool success);
-    void settingsLoaded(bool success);
-
-private:
-    QFileSystemWatcher watcher;
-
-    void manageFileWatcher(const QString &filename) {
-        if (!watcher.files().contains(filename)) {
-            watcher.addPath(filename);
-            connect(&watcher, &QFileSystemWatcher::fileChanged,
-                    this, &SettingsManager::onSettingsFileChanged);
-        }
-    }
-    void onSettingsFileChanged(const QString &path) {
-        emit settingsChanged(path);
-    }
-};
 /*** DDS interposing into QML ***
  *
  * DDS natively does not have an interface into QML, and in theory, each app
@@ -983,6 +912,4 @@ extern "C" void __attribute__ ((constructor)) init() {
         return obj;
     });
 #endif
-
-    qmlRegisterType<SettingsManager>("SettingsManager", 1, 0, "SettingsManager");
 }
