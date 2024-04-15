@@ -14,9 +14,9 @@ Item {
     id: consoleComp
     property var cmdHistory:[]
     property var historyPlaceholder:-1
-    property var gencode: X1Plus.GcodeGenerator
+
     property bool gcodeCmd: DeviceManager.getSetting("cfw_default_console",false);
-    property var inputText: "";
+    property alias inputText: inputTextBox.text;
     
     property var gcodes: ["History",
                 "ABL On",
@@ -63,50 +63,50 @@ Item {
                 "Temp:<br>Wait for<br>nozzle",
                 "Temp:<br>Wait for<br>bed"
                 ]
-    property var gcode_actions: [
-                gencode.G292(1),
-                gencode.G90(),
-                gencode.G91(),
-                gencode.M211({x:0,y:0,z:0}),
-                gencode.G1({e: -5, accel: 300}),
-                gencode.G1({e: 5, accel: 300}),
-                gencode.M106.aux(255),
-                gencode.M106.chamber(255),
-                gencode.M106.part(255),
-                gencode.M1002.gcode_claim_action(0),
-                gencode.G28.xyz,
-                gencode.G28.xy,
-                gencode.G28.z_low_precision,
-                gencode.M975(true),
-                gencode.M221({x:0,y:0,z:0}),
-                gencode.M900(0.01,1,1000),
-                gencode.M960.laser_vertical(1),
-                gencode.M960.lazer_horizontal(1),
-                gencode.M973.on,
-                gencode.M973.off,  
-                gencode.M973.expose(2,600),
-                gencode.M973.capture(1,1),
-                gencode.M960.nozzle(1),
-                gencode.M960.toolhead(1),
-                gencode.G91() + '\\n' + gencode.G0({z:10,accel:1200}), 
-                gencode.G91() + '\\n' + gencode.G0({z:-10,accel:1200}), 
-                gencode.G0({x:228,y:253,z:8,accel:1200}),
-                gencode.M9822(),
-                gencode.M400(50),
-                gencode.G4(50),
-                gencode.M1009(4),
-                gencode.M1009(5),
-                gencode.M1009(6),
-                gencode.M1009(7),
-                gencode.M73(0,18),
-                gencode.M221({x:-1,y:-1,z:-1}),
-                gencode.M220(),
-                gencode.M500(),
-                gencode.M17(0.3,0.3,0.3),
-                gencode.M104(250),
-                gencode.M140(100),
-                gencode.M109(250),
-                gencode.M190(55)
+    property var gcode_actions: ["history",
+                X1Plus.GcodeGenerator.G292(1),
+                X1Plus.GcodeGenerator.G90(),
+                X1Plus.GcodeGenerator.G91(),
+                X1Plus.GcodeGenerator.M211({x:0,y:0,z:0}),
+                X1Plus.GcodeGenerator.G1({e: -5, accel: 300}),
+                X1Plus.GcodeGenerator.G1({e: 5, accel: 300}),
+                X1Plus.GcodeGenerator.M106.aux(255),
+                X1Plus.GcodeGenerator.M106.chamber(255),
+                X1Plus.GcodeGenerator.M106.part(255),
+                X1Plus.GcodeGenerator.M1002.gcode_claim_action(0),
+                X1Plus.GcodeGenerator.G28.xyz(),
+                X1Plus.GcodeGenerator.G28.xy(),
+                X1Plus.GcodeGenerator.G28.z_low_precision(),
+                X1Plus.GcodeGenerator.M975(true),
+                X1Plus.GcodeGenerator.M205({x:0,y:0,z:0, e:0}),
+                X1Plus.GcodeGenerator.M900(0.01,1,1000),
+                X1Plus.GcodeGenerator.M960.laser_vertical(1),
+                X1Plus.GcodeGenerator.M960.laser_horizontal(1),
+                X1Plus.GcodeGenerator.M973.on(),
+                X1Plus.GcodeGenerator.M973.off(),  
+                X1Plus.GcodeGenerator.M973.expose(2,600),
+                X1Plus.GcodeGenerator.M973.capture(1,1),
+                X1Plus.GcodeGenerator.M960.nozzle(1),
+                X1Plus.GcodeGenerator.M960.toolhead(1),
+                X1Plus.GcodeGenerator.G91() + '\\n' + X1Plus.GcodeGenerator.G0({z:10,accel:1200}), 
+                X1Plus.GcodeGenerator.G91() + '\\n' + X1Plus.GcodeGenerator.G0({z:-10,accel:1200}), 
+                X1Plus.GcodeGenerator.G0({x:228,y:253,z:8,accel:1200}),
+                X1Plus.GcodeGenerator.M9822(),
+                X1Plus.GcodeGenerator.M400(50),
+                X1Plus.GcodeGenerator.G4(50),
+                X1Plus.GcodeGenerator.M2042(50),
+                X1Plus.GcodeGenerator.M2042(100),
+                X1Plus.GcodeGenerator.M2042(124),
+                X1Plus.GcodeGenerator.M2042(166),
+                X1Plus.GcodeGenerator.M73(0,18),
+                X1Plus.GcodeGenerator.M221(100),
+                X1Plus.GcodeGenerator.M220(),
+                X1Plus.GcodeGenerator.M500(),
+                X1Plus.GcodeGenerator.M17(0.3,0.3,0.3),
+                X1Plus.GcodeGenerator.M104(250),
+                X1Plus.GcodeGenerator.M140(100),
+                X1Plus.GcodeGenerator.M109(250),
+                X1Plus.GcodeGenerator.M190(55)
                 ]
     property var cmds: ["History"," $ ","  ( )  "," ` ", "  { }  ","  |  ","  -  ","  &  ","  /  ", "reboot","awk ","cat ", "chmod ","chown ", "chroot", "cp ","date -s ", "dd ", "df ", "echo ","grep", "head ","ifconfig", "iptables ", "kill ","killall ","ln -s","ls -l ","mount ","mv ","pgrep ","pidof","ping -c 1","poweroff","print ","ps aux ", "ps -ef ", "pwd", "remount", "rm ", "sed","sort","tar","test","touch ", "uname -a"]
     property var outputText:""
@@ -241,20 +241,19 @@ Item {
                     onClicked: {
                         if (index == 0 ){
                             if (cmdHistory.length == 0) return;
-                                if (historyPlaceholder < 1) {
-                                    historyPlaceholder = cmdHistory.length - 1;
-                                } else {
-                                    historyPlaceholder = 0
-                                }
+                            
                                 inputText = cmdHistory[historyPlaceholder];
                                 historyPlaceholder += -1;
+                                if (historyPlaceholder < 1) {
+                                    historyPlaceholder = cmdHistory.length - 1;
+                                }
                         } else {
                             if (gcodeCmd){
                                 if (inputText.trim().length > 0) inputText += "\\n";
-                                inputText += gcode_actions[index].trim()
+                                inputText += gcode_actions[index]
                             } else {
                                 let cmd = cmds[index].trim().replace("<br>","");
-                                if (index < 8) inputText += inputText;
+                                if (index < 9) inputText += inputText;
                                 inputText += cmd;
                             }
                         }
@@ -346,6 +345,7 @@ Item {
                 onClicked: {
                     gcodeCmd = !gcodeCmd;
                     outputText = "";
+                    inputText = "";
                     DeviceManager.putSetting("cfw_default_console", gcodeCmd);
                 }
             }
@@ -377,7 +377,7 @@ Item {
             font: Fonts.body_28
             color: Colors.gray_200
             selectByMouse: true
-            text: inputText
+            text: ""//inputText
             verticalAlignment: TextInput.AlignVCenter
             inputMethodHints: gcodeCmd ? Qt.ImhAutoUppercase | Qt.ImhPreferUppercase | Qt.ImhPreferNumbers
                                 | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhLatinOnly
@@ -395,26 +395,6 @@ Item {
             Binding on text {
                 value: inputText
             }
-            // taphandler was not working because TextInput already has a MouseArea defined. 
-            //I like this idea though (long press to pull up historical commands) but we need
-            //to sort out input handling
-            /*TapHandler {
-                onTapped: {
-                    
-                }
-                onLongPressed: {
-                    if (cmdHistory.length == 0){
-                        return;
-                    }
-                    if (i >= cmdHistory.length){
-                        i = 0;
-                    }
-                    inputTextBox.clear();
-                    console.log(i, inputTextBox.text);
-                    inputTextBox.text = cmdHistory[i];
-                    i++;
-                }
-            }*/
         }
 
         ZButton { 
@@ -454,6 +434,7 @@ Item {
 
                 }
                 cmdHistory.push(inputCmd);
+                historyPlaceholder = cmdHistory.length-1;
                 if (outputText != "")
                     outputText += "\n\n";
                 var origHeight = outputText == "" ? 0 : outputTextArea.contentHeight;

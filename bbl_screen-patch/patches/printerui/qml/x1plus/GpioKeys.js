@@ -131,13 +131,13 @@ function _handleButton(button, event) {
             _X1PlusNative.system(`reboot`);
             break;
         case ACTION_PAUSE_PRINT:
-            if (!X1Plus.isIdle()) { X1Plus.PrintManager.currentTask.pause() };
+            if (!X1Plus.Bindings.printIdle()) { X1Plus.PrintManager.currentTask.pause() };
             break;
         case ACTION_ABORT_PRINT:
-            if (!X1Plus.isIdle()) { X1Plus.PrintManager.currentTask.abort() };
+            if (!X1Plus.Bindings.printIdle()) { X1Plus.PrintManager.currentTask.abort() };
             break;
         case ACTION_TOGGLE_SCREENSAVER:
-            if (!X1Plus.hasSleep()) {
+            if (!X1Plus.Bindings.sleep()) {
                 X1Plus.DeviceManager.power.switchSleep();
             } else {
                 X1Plus.DeviceManager.power.externalWakeup();

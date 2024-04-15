@@ -129,7 +129,15 @@
                              }
                              versionNotify = false
                          }
-@@ -98,7 +166,8 @@
+@@ -91,6 +159,7 @@
+     onPrintIdleChanged: {
+         if (printIdle)
+             updateNotifyTimer.start()
++        X1Plus.Bindings.printerStatus.printIdleState(printIdle);
+     }
+ 
+     /* Power */
+@@ -98,7 +167,8 @@
      property var power: DeviceManager.power
      property bool sleep: power.hasSleep
      property bool aboutToSleep: power.aboutToSleep
@@ -139,7 +147,7 @@
      anchors.fill: parent
      color: sleep ? (blackColor ? Colors.gray_800 : "#EFEFEF") : "#80000000"
      visible: false
-@@ -135,12 +204,13 @@
+@@ -135,12 +205,13 @@
  
      onAboutToSleepChanged: {
          console.log("onAboutToSleepChanged " + aboutToSleep)
@@ -154,7 +162,7 @@
          if (sleep) {
              visible = true
          } else {
-@@ -228,5 +298,6 @@
+@@ -228,5 +299,6 @@
          if ((region == "" || (wifiRegion == "CN" && region != "China")) && (DeviceManager.getSetting("wizard") === true)) {
              dialogStack.push("ForceRegionPage.qml", { source: "force" })
          }
