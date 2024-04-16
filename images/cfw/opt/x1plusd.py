@@ -26,8 +26,8 @@ dds_handlers = {}
 def dds_start():
     global dds_request_queue, dds_report_publisher
     
-    dds_request_queue = dds.subscribe("device/x1plus/request")
-    dds_report_publisher = dds.publisher("device/x1plus/report")
+    dds_request_queue = dds.subscribe("device/request/x1plus")
+    dds_report_publisher = dds.publisher("device/report/x1plus")
     x1pusd_log.info("x1plusd: Starting DDS")
     print("x1plusd: waiting for DDS startup")
     time.sleep(2) # evade, don't solve, race conditions
