@@ -12,7 +12,7 @@ start() {
 	printf "Starting logging: "
 
 	# If persist is enabled, log to card
-	if x1p_get_setting sdcard_syslog logsd; then
+	if x1p_get_setting boot.sdcard_syslog logsd; then
 		if [ ! -d "/mnt/sdcard/log/" ]; then
 			/bin/mkdir -p "/mnt/sdcard/log/"
 		fi

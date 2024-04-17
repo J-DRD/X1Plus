@@ -20,7 +20,7 @@ fi
 QUICKBOOT_FLAG="false"
 if [ -f /mnt/sdcard/x1plus/printers/${BBL_SN}/settings.json ]; then
     # Rely on settings.json if we can, default to false
-    QUICKBOOT_FLAG=$(/opt/kexec/jq ".quick_boot // false" /mnt/sdcard/x1plus/printers/${BBL_SN}/settings.json)
+    QUICKBOOT_FLAG=$(/opt/kexec/jq ".boot.quick_boot // false" /mnt/sdcard/x1plus/printers/${BBL_SN}/settings.json)
 elif [ -f /mnt/sdcard/x1plus/printers/${BBL_SN}/quick-boot ]; then
     # fallback to legacy flagfile check
     QUICKBOOT_FLAG="true"

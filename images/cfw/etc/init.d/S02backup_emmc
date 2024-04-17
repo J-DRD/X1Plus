@@ -31,7 +31,7 @@ dump_emmc() {
     fi
 
     # Now that sd is mounted, do we need to do an emmc dump?
-    if x1p_get_setting dump_emmc dump-emmc; then
+    if x1p_get_setting boot.dump_emmc dump-emmc; then
         msg "Attempting to dump emmc as requested..." # Progress spinner sits ontop of this but that's fine
         clear_flag # Clear now, so we unset even if there's no free disk space to do the dump
         if [ -f "/mnt/sdcard/x1plus/printers/${DEVICE_SN}/emmc.bin" ]; then

@@ -3,7 +3,7 @@
 . /usr/share/x1plus/functions.sh
 
 start() {
-	if x1p_get_setting perf_log perf_log; then
+	if x1p_get_setting boot.perf_log perf_log; then
 		printf "Starting perf_log"
 		start-stop-daemon -S -m -b -p /var/run/perf_log.pid --exec /opt/perf_log.sh
 	else
