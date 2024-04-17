@@ -19,13 +19,13 @@ Rectangle {
     property var fan: [qsTr("Not installed"), qsTr("Installed")]
     color: Colors.gray_700
     property var maintain: DeviceManager.maintain
-    property var brightness: DeviceManager.getSetting("cfw_brightness", 100.0)
-    property var toolheadLED: DeviceManager.getSetting("cfw_toolhead_led", false)
+    property var brightness: X1Plus.Settings.getSetting("cfw_brightness", 100.0)
+    property var toolheadLED: X1Plus.Settings.getSetting("cfw_toolhead_led", false)
 
     Timer {
         id: dispBrightnessChangeTimer
         interval: 300; running: false; repeat: false
-        onTriggered: DeviceManager.putSetting("cfw_brightness", dispBrightnessAdj.value);
+        onTriggered: X1Plus.Settings.putSetting("cfw_brightness", dispBrightnessAdj.value);
     }
     Timer {
         id: myTime
@@ -446,10 +446,10 @@ Rectangle {
             id: toolheadLedButton
             anchors.verticalCenter: toolheadLedTxt.verticalCenter
             anchors.right: buttonGrid.right
-            dynamicChecked: DeviceManager.getSetting("cfw_toolhead_led", false)
+            dynamicChecked: X1Plus.Settings.getSetting("cfw_toolhead_led", false)
             onToggled: {
                 dynamicChecked = checked
-                DeviceManager.putSetting("cfw_toolhead_led", checked);
+                X1Plus.Settings.putSetting("cfw_toolhead_led", checked);
                 X1Plus.sendGcode("M960 S5 P" + (checked ? 1 : 0));
             }
         }

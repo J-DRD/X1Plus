@@ -6,16 +6,17 @@ import UIBase 1.0
 import Printer 1.0
 import X1PlusNative 1.0
 
+import "../X1Plus.js" as X1Plus
 import "qrc:/uibase/qml/widgets"
 import ".."
 
 Rectangle {
     property var locked: false
     property var isEnteringPasscode: false
-    property var passcode: DeviceManager.getSetting("cfw_passcode", "")
-    property var locktype: DeviceManager.getSetting("cfw_locktype", 0)
+    property var passcode: X1Plus.Settings.getSetting("cfw_passcode", "")
+    property var locktype: X1Plus.Settings.getSetting("cfw_locktype", 0)
     /* 0 = screensaver only, 1 = swipe to unlock, 2 = passcode */
-    property var lockImage: X1PlusNative.getenv("EMULATION_WORKAROUNDS") + DeviceManager.getSetting("cfw_lockscreen_image", '/mnt/sdcard/x1plus/lockscreen.png')
+    property var lockImage: X1PlusNative.getenv("EMULATION_WORKAROUNDS") + X1Plus.Settings.getSetting("cfw_lockscreen_image", '/mnt/sdcard/x1plus/lockscreen.png')
     color: Colors.gray_800
     visible: locked && locktype != 0
     
@@ -48,7 +49,7 @@ Rectangle {
 
     
     Component.onCompleted: {
-        if ((DeviceManager.getSetting("cfw_locktype", 0) == 2) && (DeviceManager.getSetting("cfw_passcode", "") != "")) {
+        if ((X1Plus.Settings.getSetting("cfw_locktype", 0) == 2) && (X1Plus.Settings.getSetting("cfw_passcode", "") != "")) {
             /* lock on boot with a passcode */
             didSleep();
             locked = true;
@@ -61,7 +62,7 @@ Rectangle {
     }
     
     function didSleep() {
-        if (DeviceManager.getSetting("cfw_locktype", 0) != 0) {
+        if (X1Plus.Settings.getSetting("cfw_locktype", 0) != 0) {
             locked = true;
             readText();
             isEnteringPasscode = false;
@@ -72,8 +73,8 @@ Rectangle {
     }
     
     function refreshSettings() {
-        passcode = DeviceManager.getSetting("cfw_passcode", "");
-        locktype = DeviceManager.getSetting("cfw_locktype", 0);
+        passcode = X1Plus.Settings.getSetting("cfw_passcode", "");
+        locktype = X1Plus.Settings.getSetting("cfw_locktype", 0);
     }
     
     NumberPad {

@@ -6,10 +6,11 @@ import Printer 1.0
 import "qrc:/uibase/qml/widgets"
 import ".."
 import "../printer"
+import "../X1Plus.js" as X1Plus
 
 Item {
     id: top
-    property var passcode: DeviceManager.getSetting("cfw_passcode", "")
+    property var passcode: X1Plus.Settings.getSetting("cfw_passcode", "")
     Binding on passcode {
         value: numberPad.number
         when: numberPad.target == top
@@ -177,9 +178,9 @@ Item {
             backgroundColor: Colors.gray_500
             width: 300
             model: [qsTr("Screen saver only"), qsTr("Swipe to unlock"), qsTr("Passcode")]
-            currentIndex: DeviceManager.getSetting("cfw_locktype", 0)
+            currentIndex: X1Plus.Settings.getSetting("cfw_locktype", 0)
             onCurrentIndexChanged: {
-                DeviceManager.putSetting("cfw_locktype", currentIndex);
+                X1Plus.Settings.putSetting("cfw_locktype", currentIndex);
                 const c = DeviceManager.power.mode; /* sort of janky mechanism to trigger the binding on the parent screen to reload */
                 DeviceManager.power.mode = 3 - c;
                 DeviceManager.power.mode = c;
@@ -272,9 +273,9 @@ Item {
             focusItem: focus
             onFinished: {
                 if (cancel) {
-                    passcode = DeviceManager.getSetting("cfw_passcode", "")
+                    passcode = X1Plus.Settings.getSetting("cfw_passcode", "")
                 } else {
-                    DeviceManager.putSetting("cfw_passcode", number);
+                    X1Plus.Settings.putSetting("cfw_passcode", number);
                     screenLock.refreshSettings();
                 }
             }

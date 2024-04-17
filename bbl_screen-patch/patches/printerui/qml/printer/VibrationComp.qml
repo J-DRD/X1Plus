@@ -19,7 +19,7 @@ Item {
     property var _cal: X1Plus.ShaperCalibration
 
     function loadSweepArgs() {
-        var a = DeviceManager.getSetting("cfw_vc",null);
+        var a = X1Plus.Settings.getSetting("cfw_vc",null);
         if (!(a instanceof Object) || !a.low || !a.high) {
             a = { "low": "10", "high": "220"};
         }
@@ -208,7 +208,7 @@ Item {
             onCurrentTextChanged: {
                 if (currentText != ""){
                     sweepArgs.low = currentText;
-                    DeviceManager.putSetting("cfw_vc",sweepArgs);
+                    X1Plus.Settings.putSetting("cfw_vc",sweepArgs);
                 }
                     
             }
@@ -237,7 +237,7 @@ Item {
             onCurrentTextChanged: {
                 if (currentText != "") {
                     sweepArgs.high = currentText;
-                    DeviceManager.putSetting("cfw_vc",sweepArgs);
+                    X1Plus.Settings.putSetting("cfw_vc",sweepArgs);
                 }
             }
         }

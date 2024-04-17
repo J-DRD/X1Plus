@@ -143,10 +143,7 @@ Item {
             });
             X1PlusNative.system(`cp /sdcard/x1plus/firmware/${fileName} /userdata/firmware/${fileName}`);
             X1PlusNative.system(`chmod -x /userdata/firmware/${fileName}`);
-            X1Plus.DDS.publish("device/request/upgrade", {
-                "command": "consistency_confirm",
-                "sequence_id": "0"
-            });
+            X1Plus.DDS.publiser.upgrade_consistency();
         } else {
             // thttpd looks in /tmp/firmware, not /sdcard/x1plus/firmware,
             // because sdcard file modes have +x, and thttpd will die from
@@ -164,14 +161,7 @@ Item {
             // running!  So we do that.
             X1PlusNative.system(`cp /sdcard/x1plus/firmware/${fileName} /userdata/firmware/${fileName}`);
             X1PlusNative.system(`chmod -x /userdata/firmware/${fileName}`);
-
-            X1Plus.DDS.publish("device/request/upgrade", {
-                "command": "start",
-                "sequence_id": "0",
-                "module": module.split("/")[0], /* ams/0 -> ams */
-                "version": version,
-                "url": `http://127.0.0.1:8888/${fileName}`
-            });
+            X1Plus.DDS.publisher.upgrade_start(module, version, fileName, 0);
         }
     }
 

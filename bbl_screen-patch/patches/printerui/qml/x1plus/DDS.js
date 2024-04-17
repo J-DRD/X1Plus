@@ -8,6 +8,38 @@ var X1Plus = null;
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
 
+/**
+ * DDS topics and message creation
+ * Call this object from anywhere in QML to publish a DDS message
+ * Usage:
+ * X1Plus.DDS.publisher.publish_gcode("M106 P2 S255",0)
+ */
+const publisher = {
+    
+    get_setting: 
+        (_key,seq_id) => publish("device/x1plus",{settings: "getSetting", key:_key, sequence_id: seq_id }),
+    put_setting: 
+        (_key,_val,seq_id) => publish("device/x1plus",{settings: "putSetting",key:_key, value:_val, sequence_id: seq_id }),
+    version_request: 
+        (seq_id) => publish("device/request/info",{command: "get_version", sequence_id: seq_id }),
+    publish_gcode: 
+        (gcode_line,seq_id) => publish("device/request/print",{command: "gcode_line",param: gcode_line,sequence_id: seq_id}),
+    print_gcode_file: 
+        (gcode_file,seq_id) => publish("device/request/print",{command: "gcode_file",param: gcode_file,sequence_id: seq_id}),
+    push_status: 
+        (action, seq_id) => publish("device/request/print",{command: "push_status", "gcode_claim_action":action,  sequence_id: seq_id }),
+    upgrade_consistency: 
+        (seq_id) => publish("device/request/upgrade",{command: "consistency_confirm", sequence_id: seq_id }),
+    upgrade_start: 
+        (_module, _version,_fName,seq_id) => publish("device/request/upgrade",{command: "start", sequence_id: seq_id,module: _module.split("/")[0], version: _version,url: `http://127.0.0.1:8888/${_fName}`}),
+}
+const topics = {
+    gpiokeys: "device/x1plus",
+    push_status: "device/report/print",
+    get_version: "device/report/info",
+    mc_print: "device/report/mc_print",
+}
+
 function publish(topic, json) {
     _DdsListener.publishJson(topic, JSON.stringify(json));
 }
@@ -34,7 +66,7 @@ _DdsListener.gotDdsEvent.connect(function(topic, message) {
 var [versions, versionsChanged, _setVersions] = Binding.makeBinding([]);
 
 function requestVersions() {
-    publish(ddsMsg.version_request.topic, ddsMsg.version_request.msg(0));
+    publisher.version_request(0);
     if (X1Plus.emulating) {
         _setVersions([
             {"hw_ver":"","name":"ota","sn":"","sw_ver":"01.05.01.00"},
@@ -54,7 +86,7 @@ function requestVersions() {
  * SettingsListener.qml, UpgradeDialog.qml, VersionPage.qml
  * {command: "get_version", "sequence_id": 0}
  * */
-registerHandler(ddsMsg.version_request.topic, function(datum) {
+registerHandler(topics.get_version(), function(datum) {
     if (datum.command == "get_version") {
         _setVersions(datum.module);
     }
@@ -68,12 +100,25 @@ var [gcodeAction, gcodeActionChanged, _setGcodeAction] = Binding.makeBinding(-1)
  * Not in use
  * {command: "push_status", "gcode_claim_action", 0: "sequence_id": 0}
  * */
-registerHandler(ddsMsg.push_status.topic(), function(datum) {
+registerHandler(topics.push_status(), function(datum) {
     if (datum.command == "push_status" && datum.print_gcode_action) {
         if (gcodeAction() != datum.print_gcode_action) {
             _setGcodeAction(datum.print_gcode_action);
         }
     }
+});
+
+/** 
+ * Topic: device/report/mc_print
+ * BedMeshCalibration.js and ShaperCalibration.js
+ * {command: "mesh_data", "param": {x: 0, y: 0, z: 0}, "sequence_id": 0}
+ * */
+registerHandler(topics.mc_print(), function(datum) {
+    if (datum.command == "mesh_data") {
+        X1Plus.BedMeshCalibration.parse_data(datum);
+    } else if (["vc_data", "vc_enable", "vc_params"].includes(datum.command)) {
+        X1Plus.ShaperCalibration.parse_data(datum);
+    }     
 });
 
 
@@ -82,88 +127,15 @@ registerHandler(ddsMsg.push_status.topic(), function(datum) {
  * Gpiokeys.py
  * {gpio: {button: "power", event: "shortPress"}}
  * */
-registerHandler(ddsMsg.x1p.topic, function(datum) {
+registerHandler(topics.gpiokeys(), function(datum) {
     if (datum.gpio){
         X1Plus.Gpiokeys._handleButton(datum);
     } else if (datum.settings && datum.key) { /* Settings - format not finalized! */
         if (datum.settings == "getSetting") {  
-            X1Plus.Settings.getSetting(datum.key);
+            //publish setting value to DDS (or just MQTT)
         } else if (datum.settings == "putSetting") { 
             X1Plus.Settings.putSetting(datum.key,datum.value);
         }
     }
 });
 
-/**
- * DDS topics and message creation
- * Call this object from anywhere in QML to generate topics and formatted payloads
- * Usage:
- * let version = ddsMsg.version_request;
- * DDS.publish(version.topic, version.msg(0))
- */
-var ddsMsg = {
-    get_setting:{ 
-        topic: () => "device/x1plus",
-        msg: (_key,cId) => {
-            return {settings: "getSetting", key:_key, sequence_id: cId };
-        }
-    },
-    put_setting:{
-        topic: () => "device/x1plus",
-        msg: (_key,_val,cId) => {
-            return {settings: "putSetting",key:_key, value:_val, sequence_id: cId };
-        }
-    },
-    version_report:{
-        topic: () => "device/report/info",
-    },
-    version_request:{
-        topic: () => "device/report/info",
-        msg: (cId) => {
-            return {command: "get_version", sequence_id: cId };
-        }
-    },
-    push_status:{
-        topic: () => "device/report/print",
-    },
-    publish_gcode: {
-        topic: () => "device/request/print",
-        msg: (gcode,cId) => {
-            var payload = {
-                command: "gcode_line",
-                param: gcode,
-                sequence_id: cId
-            };
-            return payload;
-        }
-    },
-    x1p:{
-        topic: () => "device/x1plus",
-    },
-    upgrade_consistency: {
-        topic:() => "device/request/upgrade",
-        msg: (cId) => {
-            let payload = {
-                command: "consistency_confirm",
-                sequence_id: cId
-            }
-            return payload;
-        }
-    },
-    upgrade_start: {
-        topic:() => "device/request/upgrade",
-        msg: (cId, _module, _version,_fName) => {
-            let payload = {
-                    command: "start",
-                    sequence_id: cId,
-                    module: _module.split("/")[0],
-                    version: _version,
-                    url: `http://127.0.0.1:8888/${_fName}`
-            }
-            return payload;
-        }
-    },
-    mc_print: {
-        topic: () => "device/report/mc_print"
-    }
-}

@@ -87,54 +87,52 @@ function _calibrationFinished() {
     _setStatus(STATUS.DONE);
 }
 
-_DdsListener.gotDdsEvent.connect(function(topic, dstr) {
+function parse_data(datum) {
     if (status() != STATUS.STARTING && status() != STATUS.SWEEPING) {
         return;
     }
-    const datum = JSON.parse(dstr);
-    if (topic == "device/report/mc_print") {
-        if (datum["command"] == "vc_data") {   
-            var msg = datum["param"];
-            
-            var ax = currentAxis();
-            if (msg.f == currentRangeLow()) {
-                if (ax == null) {
-                    ax = "y";
-                } else if (ax == "y") {
-                    ax = "x";
-                } else {
-                    console.log("[x1p] ShaperCalibration: saw low range too many times?");
-                }
-            }
-            
-            var _shaperData = shaperData();
-            _shaperData.axes[ax].points[msg.f] = { "a": msg.a, "ph": msg.ph, "err": msg.err };
-            _setShaperData(_shaperData); // trigger a changed event
-            _setAxisAndFreq([ax, msg.f]); // atomically!
-
-            _timeoutTimer.interval = TIMEOUT_POINT_MS;
-            _timeoutTimer.restart();
-            _setStatus(STATUS.SWEEPING);
-        } else if (datum["command"] == "vc_enable") {
-            _isFinishing = true;
-            _finishVcParamCount = 0;
-        } else if (datum["command"] == "vc_params" && _isFinishing) {
-            var msg = datum["param"];
-            
-            var ax = _finishVcParamCount < 2 ? 'x' : 'y'; /* these get dumped out in the opposite order, for some reason */
-            
-            var _shaperData = shaperData();
-            _shaperData.axes[ax].summaries.push({"wn": msg.wn, "ksi": msg.ksi, "pk": msg.pk, "l": msg.l, "h": msg.h});
-            _setShaperData(_shaperData); // trigger a changed event
-            
-            _finishVcParamCount++;
-            
-            if (_finishVcParamCount == 4) {
-                _calibrationFinished();
+    if (datum["command"] == "vc_data") {   
+        var msg = datum["param"];
+        
+        var ax = currentAxis();
+        if (msg.f == currentRangeLow()) {
+            if (ax == null) {
+                ax = "y";
+            } else if (ax == "y") {
+                ax = "x";
+            } else {
+                console.log("[x1p] ShaperCalibration: saw low range too many times?");
             }
         }
+        
+        var _shaperData = shaperData();
+        _shaperData.axes[ax].points[msg.f] = { "a": msg.a, "ph": msg.ph, "err": msg.err };
+        _setShaperData(_shaperData); // trigger a changed event
+        _setAxisAndFreq([ax, msg.f]); // atomically!
+
+        _timeoutTimer.interval = TIMEOUT_POINT_MS;
+        _timeoutTimer.restart();
+        _setStatus(STATUS.SWEEPING);
+    } else if (datum["command"] == "vc_enable") {
+        _isFinishing = true;
+        _finishVcParamCount = 0;
+    } else if (datum["command"] == "vc_params" && _isFinishing) {
+        var msg = datum["param"];
+        
+        var ax = _finishVcParamCount < 2 ? 'x' : 'y'; /* these get dumped out in the opposite order, for some reason */
+        
+        var _shaperData = shaperData();
+        _shaperData.axes[ax].summaries.push({"wn": msg.wn, "ksi": msg.ksi, "pk": msg.pk, "l": msg.l, "h": msg.h});
+        _setShaperData(_shaperData); // trigger a changed event
+        
+        _finishVcParamCount++;
+        
+        if (_finishVcParamCount == 4) {
+            _calibrationFinished();
+        }
     }
-});
+}
+
 
 /*** Calibration database persistent store ***/
 
