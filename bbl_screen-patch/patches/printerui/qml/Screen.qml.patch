@@ -22,12 +22,12 @@
      property var pageStack: pageStack
  
 +    function updateBacklight() {
-+        var bright = X1Plus.Settings.getSetting("cfw_brightness", 100);
++        var bright = DeviceManager.getSetting("cfw_brightness", 100);
 +        X1PlusNative.updateBacklight(bright);
 +    }
 +
 +    function updateToolheadLed() {
-+        var on = X1Plus.Settings.getSetting("cfw_toolhead_led", false);
++        var on = DeviceManager.getSetting("cfw_toolhead_led", false);
 +        X1Plus.sendGcode(`M960 S5 P${on ? 1 : 0}`);
 +    }
 +
@@ -48,15 +48,6 @@
          }
  
          Timer {
-@@ -112,7 +125,7 @@
- 
-         EventTrack.pageName: pageStack.currentPageName
-     }
--
-+ 
-     function jumpTo(page) {
-         var n = page.indexOf("/")
-         if (n < 0) {
 @@ -129,6 +142,7 @@
  
      Component.onCompleted: {

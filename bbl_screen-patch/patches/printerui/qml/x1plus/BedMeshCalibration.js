@@ -78,37 +78,41 @@ function _calibrationFinished() {
     _setStatus(STATUS.DONE);
 }
 
-function parse_data(datum) {
+_DdsListener.gotDdsEvent.connect(function(topic, dstr) {
     if (status() != STATUS.STARTING && status() != STATUS.PROBING) {
         return;
     }
-    var msg = datum["param"];
-    
-    if (msg["x"] == null)
-        return;
-    var x = parseFloat(msg["x"]);
-    var y = parseFloat(msg["y"]);
-    var z = parseFloat(msg["z"]);
-    
-    var _mesh = mesh();
-    if (!_mesh[y])
-        _mesh[y] = {};
-    _mesh[y][x] = z;
-    _setMesh(_mesh); // trigger a changed event for the mesh
+    if (topic == "device/report/mc_print") {
+        const datum = JSON.parse(dstr);
+        if (datum["command"] == "mesh_data") {
+            var msg = datum["param"];
+            
+            if (msg["x"] == null)
+                return;
+            var x = parseFloat(msg["x"]);
+            var y = parseFloat(msg["y"]);
+            var z = parseFloat(msg["z"]);
+            
+            var _mesh = mesh();
+            if (!_mesh[y])
+                _mesh[y] = {};
+            _mesh[y][x] = z;
+            _setMesh(_mesh); // trigger a changed event for the mesh
 
-    _timeoutTimer.interval = TIMEOUT_POINT_MS;
-    _timeoutTimer.restart();
-    _setStatus(STATUS.PROBING);
+            _timeoutTimer.interval = TIMEOUT_POINT_MS;
+            _timeoutTimer.restart();
+            _setStatus(STATUS.PROBING);
 
-    _setLastX(x);
-    _setLastY(y);
-    _setLastZ(z);
-    _setPointCount(pointCount() + 1);
-    if (pointCount() == N_MESH_POINTS) {
-        _calibrationFinished();
+            _setLastX(x);
+            _setLastY(y);
+            _setLastZ(z);
+            _setPointCount(pointCount() + 1);
+            if (pointCount() == N_MESH_POINTS) {
+                _calibrationFinished();
+            }
+        }
     }
-}
-    
+});
 
 /*** Calibration database persistent store ***/
 

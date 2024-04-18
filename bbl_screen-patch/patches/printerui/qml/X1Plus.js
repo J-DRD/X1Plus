@@ -106,7 +106,9 @@ function atomicSaveJson(path, json) {
 X1Plus.atomicSaveJson = atomicSaveJson;
 
 function sendGcode(gcode_line, seq_id=0){
-	DDS.publisher.publish_gcode(gcode_line, seq_id);
+	var payload = DDS.ddsMsg.publish_gcode.msg(gcode_line, seq_id);
+	DDS.publish(DDS.ddsMsg.publish_gcode.topic(), payload);
+	console.log("[x1p] Gcode published:", JSON.stringify(payload));
 }
 X1Plus.sendGcode = sendGcode;
 
@@ -142,9 +144,7 @@ function awaken(_DeviceManager, _PrintManager, _PrintTask) {
 	_X1PlusNative.system("mkdir -p " + _X1PlusNative.getenv("EMULATION_WORKAROUNDS") + printerConfigDir);
 	BedMeshCalibration.awaken();
 	ShaperCalibration.awaken();
-	GpioKeys.awaken(); 
-	Settings._settingsFile = printerConfigDir+"/settings.json";
-	Settings.loadDatabase(true);
+	GpioKeys.awaken();
 }
 
 X1Plus.DBus.registerMethod("ping", (param) => {

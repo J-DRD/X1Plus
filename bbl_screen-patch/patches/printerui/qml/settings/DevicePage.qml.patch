@@ -1,6 +1,6 @@
 --- printer_ui-orig/printerui/qml/settings/DevicePage.qml
 +++ printer_ui/printerui/qml/settings/DevicePage.qml
-@@ -3,14 +3,46 @@
+@@ -3,14 +3,45 @@
  import QtQml 2.12
  import UIBase 1.0
  import Printer 1.0
@@ -9,17 +9,16 @@
  import "qrc:/uibase/qml/widgets"
  import ".."
 +import "../printer"
-+import "../X1Plus.js" as X1Plus
  
  Item {
  
      property var build: DeviceManager.build
      property var storage: DeviceManager.storage
-+    property var isShield: X1Plus.Settings.getSetting("cfw_shield", false)
++    property var isShield: DeviceManager.getSetting("cfw_shield", false)
 +    property var changeName:""
 +    function setShield(shield) {
 +        isShield = shield;
-+        X1Plus.Settings.putSetting("cfw_shield", isShield);
++        DeviceManager.putSetting("cfw_shield", isShield);
 +        if (shield) {
 +            X1PlusNative.system(`/etc/init.d/S71x1plus_shield start`);
 +            console.log("[x1p] shield mode enabled");
@@ -47,7 +46,7 @@
  
      onVisibleChanged: {
          DeviceManager.activeDeviceInfos(DeviceManager.DI_Storage, visible)
-@@ -22,6 +54,7 @@
+@@ -22,6 +53,7 @@
  
      property var infoItems: SimpleItemModel {
          DeviceInfoItem { title: qsTr("Device"); value: build.name
@@ -55,7 +54,7 @@
          }
          DeviceInfoItem { title: qsTr("Language"); value: DeviceManager.languageTitle
              function onClicked() {
-@@ -31,8 +64,8 @@
+@@ -31,8 +63,8 @@
                  choisePad.choiseCallback = function(c) { DeviceManager.languageTitle = c }
                  choisePad.popupFor()
              } }
@@ -66,7 +65,7 @@
              property var onClicked: triggerVersion
          }
          DeviceInfoItem { title: qsTr("Video"); value: models[number]
-@@ -56,79 +89,59 @@
+@@ -56,79 +88,59 @@
                  }
                  choisePad.popupFor()
              } }
@@ -84,7 +83,7 @@
 -//        DeviceInfoItem { title: qsTr("Model Name"); value: build.product }
 -        DeviceInfoItem { title: qsTr("Device info"); value: build.seriaNO
 -            function onClicked() { pageStack.push("DeviceInfoPage.qml") }
-+        DeviceInfoItem { title: qsTr("Screen lock"); value: [qsTr("2min"), qsTr("5min"), qsTr("10min"), qsTr("15min")][DeviceManager.power.mode] + ", " + ["screen saver", "swipe to unlock", "passcode"][X1Plus.Settings.getSetting("cfw_locktype", 0)]
++        DeviceInfoItem { title: qsTr("Screen lock"); value: [qsTr("2min"), qsTr("5min"), qsTr("10min"), qsTr("15min")][DeviceManager.power.mode] + ", " + ["screen saver", "swipe to unlock", "passcode"][DeviceManager.getSetting("cfw_locktype", 0)]
 +            function onClicked() { pageStack.push("ScreenLockPage.qml") }
          }
 -//        DeviceInfoItem { title: qsTr("Certification"); value: ""
@@ -190,7 +189,7 @@
          var export_ = function(index) {
  //            if (!DeviceManager.exportSystemLog())
  //                return
-@@ -173,30 +186,36 @@
+@@ -173,30 +185,36 @@
                                          onYes: restore
                                      })
          }
@@ -237,7 +236,7 @@
                  anchors.horizontalCenter: parent.horizontalCenter
                  color: Colors.gray_200
                  font: Fonts.body_40
-@@ -206,6 +225,7 @@
+@@ -206,6 +224,7 @@
              ZText {
                  id: sdSpace
                  anchors.top: sdName.bottom
@@ -245,7 +244,7 @@
                  anchors.horizontalCenter: sdName.horizontalCenter
                  color: Colors.font2
                  font: Fonts.body_24
-@@ -215,12 +235,12 @@
+@@ -215,12 +234,12 @@
  
              ZProgressBar {
                  id: sdProgressBar
@@ -261,7 +260,7 @@
                  anchors.horizontalCenter: parent.horizontalCenter
                  backgroundColor: StateColors.get("gray_500")
                  progressColor: Colors.brand
-@@ -229,25 +249,73 @@
+@@ -229,25 +248,73 @@
          }
  
          MarginPanel {
@@ -351,7 +350,7 @@
                  }
              }
          }
-@@ -255,7 +323,7 @@
+@@ -255,7 +322,7 @@
          MarginPanel {
              id: lanOnly
              width: 426
@@ -360,7 +359,7 @@
              anchors.top: sdIdStorage.bottom
              anchors.topMargin: 16
              anchors.left: sdIdStorage.left
-@@ -266,30 +334,45 @@
+@@ -266,30 +333,45 @@
              Text {
                  id: lanOnlyText
                  anchors.top: parent.top
@@ -420,7 +419,7 @@
                                              if (!RecordManager.rtspServerOn) {
                                                  dialogStack.popupDialog(
                                                              "TextConfirm", {
-@@ -302,27 +385,62 @@
+@@ -302,27 +384,62 @@
                                                                  }
                                                              })
                                              }
@@ -492,7 +491,7 @@
                  anchors.left: lanOnlyText.left
                  color: Colors.brand
                  font: Fonts.body_24
-@@ -335,8 +453,7 @@
+@@ -335,8 +452,7 @@
                  height: width
                  radius: width / 2
                  anchors.top: accessCodeText.top
@@ -502,7 +501,7 @@
                  type: ZButtonAppearance.Secondary
                  iconPosition: ZButtonAppearance.Center
                  paddingX: 0
-@@ -362,9 +479,9 @@
+@@ -362,9 +478,9 @@
          }
  
          MarginPanel {
@@ -514,7 +513,7 @@
              anchors.top: lanOnly.bottom
              anchors.topMargin: 16
              anchors.left: lanOnly.left
-@@ -373,28 +490,84 @@
+@@ -373,28 +489,84 @@
              marginColor: "transparent"
  
              Text {
@@ -544,10 +543,10 @@
 -                dynamicChecked: RecordManager.rtspServerOn
 -                enabled: !RecordManager.syncingRtspServer
 +                anchors.verticalCenter: enableSshTx.verticalCenter
-+                dynamicChecked: X1Plus.Settings.getSetting("cfw_sshd", false)
++                dynamicChecked: DeviceManager.getSetting("cfw_sshd", false)
                  onToggled: {
 -                    RecordManager.rtspServerOn = checked
-+                    X1Plus.Settings.putSetting("cfw_sshd", checked)
++                    DeviceManager.putSetting("cfw_sshd", checked)
 +                    dynamicChecked = checked
 +                    if (checked) {
 +                        X1PlusNative.system(`/etc/init.d/S70x1plus_sshd start`);
@@ -558,10 +557,10 @@
 +            }
 +            
 +            ZText {
-+                property var rootpw: X1Plus.Settings.getSetting("cfw_rootpw", "")
++                property var rootpw: DeviceManager.getSetting("cfw_rootpw", "")
 +                function regenRootPw() {
 +                    var newpw = X1PlusNative.popen(`dd if=/dev/urandom bs=10 count=1 | md5sum | cut -c 1-12`); // now THAT is cheesy!
-+                    X1Plus.Settings.putSetting("cfw_rootpw", newpw);
++                    DeviceManager.putSetting("cfw_rootpw", newpw);
 +                    rootpw = newpw;
 +                    X1PlusNative.system(`/etc/init.d/S70x1plus_sshd new_password`);
 +                }
@@ -609,7 +608,7 @@
          }
      }
  
-@@ -404,7 +577,9 @@
+@@ -404,7 +576,9 @@
          anchors.right: parent.right
          anchors.top: parent.top
          anchors.bottom: parent.bottom
@@ -620,7 +619,7 @@
          radius: 15
          color: Colors.gray_600
  
-@@ -581,6 +756,114 @@
+@@ -581,6 +755,114 @@
  
      }
  
@@ -735,7 +734,7 @@
      function setResolution(res)
      {
          if(res === RecordManager.resolution)
-@@ -607,4 +890,41 @@
+@@ -607,4 +889,41 @@
              }
          }
      }

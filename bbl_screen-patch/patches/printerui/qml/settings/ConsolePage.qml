@@ -15,7 +15,7 @@ Item {
     property var cmdHistory:[]
     property int historyIndex: 0
 
-    property bool gcodeConsole: X1Plus.Settings.getSetting("cfw_default_console",false);
+    property bool gcodeConsole: DeviceManager.getSetting("cfw_default_console",false);
     property alias inputText: inputTextBox.text
     property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
     property bool ignoreDialog: false
@@ -425,7 +425,7 @@ Item {
                     gcodeConsole = !gcodeConsole;
                     outputText = "";
                     inputText = "";
-                    X1Plus.Settings.putSetting("cfw_default_console", gcodeCmd);
+                    DeviceManager.putSetting("cfw_default_console", gcodeCmd);
                     cmdHistory = [];
                     historyIndex = 0;
                 }
