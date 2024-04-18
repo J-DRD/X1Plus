@@ -8,6 +8,8 @@ import json
 import subprocess
 import traceback
 import time
+import datetime
+import requests
 from logger.custom_logger import CustomLogger
 
 # should probably check if the user has SD logging enabled? if so, change the filepath to /sdcard/log/x1plusd.log
@@ -33,10 +35,11 @@ def dds_start():
     dds_report_publisher = dds.publisher("device/report/x1plus")
     x1pusd_log.info("x1plusd: Starting DDS")
     print("x1plusd: waiting for DDS startup")
-    time.sleep(2)  # evade, don't solve, race conditions
+    time.sleep(3)  # evade, don't solve, race conditions
 
 
 def dds_loop():
+    x1pusd_log.info("x1plusd: Starting DDS Loop")
     while True:
         req_raw = dds_request_queue.get()  # blocks until a message arrives
         try:
@@ -51,44 +54,120 @@ def dds_loop():
             traceback.print_exc()
 
 
-# TODO: actually write this later
-# def ota_service():
-#     #TODO: check if we have OTA service enabled/disabled via settings
+class OTAService:
+    """
+    Our OTA engine service, used to check/download X1Plus OTAs.
 
-#     # Setup DDS
-#     dds_rx_queue = dds.subscribe("device/x1plus/request")
-#     dds_tx_pub = dds.publisher("device/x1plus/report")
+    Input DDS: device/request/x1plus
+    Output DDS: device/report/x1plus
 
-#     #dds_tx_pub(json.dumps({ 'command': 'ota', 'test': True }))
+    Payload Key: ota
 
-#     print("X1Plus OTA started!")
+    Examples:
+    Request: {"ota": {"check": true } # check for an OTA update, new OTA available
+    Response: {"ota_available": true, "error_on_last_check": false, "last_checked": TIMESTAMP, "ota_info": {...}, "is_downloaded": false}
 
-#     # flush the input queue on launch, to play it safe.
-#     # TODO: is this really needed?
-#     while not dds_rx_queue.empty():
-#         dds_rx_queue.get()
+    Request: {"ota": {"check": true } # check for an OTA update, no new OTA
+    Response: {"ota_available": false, "error_on_last_check": false, "last_checked": TIMESTAMP, "ota_info": null, "is_downloaded": false}
 
-#     # Start our 'wait loop', aka daemon
-#     while True:
-#         try:
-#             resp = dds_rx_queue.get() # We wait til we get a message
-#             resp = json.loads(resp) # Try to load into json
-#             if
-#         except:
-#             # Keep going if we have an issue
-#             pass
+    Request: {"ota": {"check": true } # check for an OTA update, error
+    Response: {"ota_available": false, "error_on_last_check": true, "last_checked": TIMESTAMP, "ota_info": null, "is_downloaded": false}
 
+    Request: {"ota": {"check": true } # check for an OTA update, but OTAs are disabled (how did you get here?)
+    Response: {"ota_available": false, "error_on_last_check": false, "last_checked": null, "ota_info": null, "is_downloaded": false}
+
+    Request: {"ota": {"check": false } # Don't check for an OTA, but get current status
+    Response: (varies, same structure as above)
+    """
+    def __init__(self):
+        self.ota_url = "https://ota.x1plus.net/stable/ota.json"
+        self.ota_available = False
+        self.last_check_timestamp = None
+        self.last_check_response = None
+        self.last_check_error = False
+        self.ota_downloaded = False
+
+        try:
+            with open("/opt/info.json", "r") as fh:
+                self.build_info = json.load(fh)
+        except FileNotFoundError:
+            x1pusd_log.error("x1plusd: /opt/info.json was not found! Setting mock values so we get an OTA to recover!")
+            self.build_info = {
+                "cfwVersion": "0.1",
+                "date": "2024-04-17",
+                "buildTimestamp": 1713397465.0
+            }
+
+        # register self with DDS...
+        dds_handlers["ota"] = self._handle
+        
+        # Lastly, trigger a check during __init__
+        self._update_check({"check": True})
+
+    def _handle(self, req):
+        # Parse what we were asked to do
+        if "check" in req["ota"]:
+            self._update_check(req["ota"])
+
+    def _update_check(self, payload):
+        ota_response = {
+            "ota_available": self.ota_available,
+            "err_on_last_check": self.last_check_error,
+            "last_checked": self.last_check_timestamp,
+            "ota_info": self.last_check_response,
+            "is_downloaded": self.ota_downloaded,
+        }
+
+        # First, if we were asked just for the last status, just return our ota object
+        if not payload.get("check", False):
+            dds_report({"ota": ota_response})
+            return
+
+        # Load in our settings.json, we need to make sure we are still enabled! :)
+        try:
+            with open(f"/mnt/sdcard/x1plus/printers/{_get_sn()}/settings.json", "r") as fh:
+                x1p_settings = json.load(fh)
+        except FileNotFoundError:
+            x1pusd_log.error("x1plusd: OTA can't find settings.json, assuming OTAs are disabled!")
+            x1p_settings = {"ota": {"enable": False}}
+
+        # Do we have OTAs enabled? If not, just return current status
+        if not x1p_settings.get("ota", {"enable": False}).get("enable"):
+            print("x1plusd: OTA check is disabled, skipping check!")
+            x1pusd_log.info("x1plusd: OTA check is disabled, skipping check!")
+            dds_report({"ota": ota_response})
+            return
+        
+        # If we are here we want to check, so check
+        try:
+            # Update check timestamp first
+            self.last_check_timestamp = datetime.datetime.now().timestamp()
+            r = requests.get(self.ota_url, timeout=5)
+            self.last_check_response = r.json()
+        except Exception as e:
+            print(f"x1plusd: Exception calling OTA URL! Error of: {e}")
+            x1pusd_log.info(f"x1plusd: Exception calling OTA URL! Error of: {e}")            
+            # we Timed out, or hit other error with requests
+            self.last_check_error = True
+            return
+
+        # Now that we have the build info, do our check to see if there's an update
+        if self.build_info.get("buildTimestamp",0) < self.last_check_response.get("buildTimestamp",0):
+            self.ota_available = True
+
+        # Return result of our check
+        dds_report({"ota": ota_response})
 
 class SettingsService:
     """
     Our settings daemon service, used to set X1Plus settings.
 
-    Input DDS: device/x1plus/request
-    Output DDS: device/x1plus/report
+    Input DDS: device/request/x1plus
+    Output DDS: device/report/x1plus
 
-    payload key: settings
+    Payload Key: settings
 
-    Set Examples:
+    Examples:
     Request: {"settings": {"set": {"KEY": "VALUE"}} # sets a setting
     Response: {"settings": {"changes": {"KEY": "VALUE"}}}
 
@@ -279,9 +358,14 @@ def _get_sn():
 if __name__ == "__main__":
     # TODO: check if we are already running
     try:
+        # Setup/register with DDS
         dds_start()
 
+        # Call our services so they register with dds
         settings = SettingsService()
+        ota = OTAService()
+
+        # Start our DDS listener
         dds_loop()
     except:
         dds.shutdown()
