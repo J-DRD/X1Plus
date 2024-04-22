@@ -1,6 +1,6 @@
 --- printer_ui-orig/printerui/qml/printer/AdjustPage.qml
 +++ printer_ui/printerui/qml/printer/AdjustPage.qml
-@@ -1,17 +1,22 @@
+@@ -1,17 +1,24 @@
  import QtQuick 2.12
  import QtQuick.Shapes 1.12
 -
@@ -21,12 +21,14 @@
 +    property var speedValues: [50,100,125,175]
 +    property var speedStr: ["Silent","Normal","Sport","Ludicrous"]
 +    property var targetSpeed:100
++    property var currentSpeed: X1Plus.Bindings.printerStatus.currentSpeed(PrintManager)
 +    property var isHomed:  X1Plus.Bindings.printerStatus.homeState(PrintManager)
++    property bool ignoreDialog: false
 +    
      property var speedAdjust: QtObject {
          property string name: "speed"
          property int currentTemp: PrintManager.currentTask.printSpeed
-@@ -20,7 +25,7 @@
+@@ -20,7 +27,7 @@
          property string errorMsg
          property bool visible: true
      }
@@ -35,19 +37,63 @@
      property var tempModel: [
          heaters.hotend,
          heaters.heatbed,
-@@ -55,7 +60,10 @@
+@@ -55,7 +62,10 @@
          AxisItem { name: "10"; tip: "plate_down"
              axis: AxisController.AxisZ; dir: AxisController.Increase; unit: AxisController.MM_10}
      }
 -
 +    Component.onCompleted: {
 +        X1Plus.Bindings.printerStatus.updatePrintSpeed();
-+        targetSpeed = X1Plus.Bindings.printSpeed()
++        targetSpeed = currentSpeed;
 +    }
      MarginPanel {
          id: ctrlPanel
          width: 295
-@@ -163,7 +171,6 @@
+@@ -129,6 +139,7 @@
+         }
+     }
+ 
++
+     MarginPanel {
+         id: axisPanel
+         height: parent.height
+@@ -149,21 +160,35 @@
+                 delegate: axisComp
+             }
+ 
+-            ZButton {
++            Rectangle {
+                 id: axisHome
+                 width: 103
+                 height: 103
+                 anchors.centerIn: parent
+-                type: ZButtonAppearance.Tertiary
+-                radius: 44
+-                iconSize: 0
+-                icon: "../../icon/vector.svg"
+-                onClicked: {
+-                    axisController.moveCenter(PrintManager.currentTask.stage === PrintTask.PAUSED)
++                radius: width/2
++                color:  "#626260"
++                    ZImage {
++                        id: axisHomeImage
++                        width: 70 
++                        height: 70
++                        anchors.centerIn: parent
++                        fillMode: Image.PreserveAspectFit 
++                        originSource: (isHomed) ? "../../icon/components/home.svg" : "../../icon/vector.svg"
++                        tintColor: (isHomed) ?  Colors.brand : "#eb6600"
++                        Behavior on tintColor {
++                            ColorAnimation { duration: 500 } 
++                        }
++                    }
++                MouseArea {
++                    anchors.fill:parent
++                    onClicked: {
++                        axisController.moveCenter(PrintManager.currentTask.stage === PrintTask.PAUSED)
++                    }
++                    onEntered: axisHome.opacity = 0.8
++                    onExited: axisHome.opacity = 1.0
                  }
              }
          }
@@ -55,7 +101,16 @@
          Item {
              id: zAxis
              x: 553
-@@ -368,13 +375,7 @@
+@@ -205,7 +230,7 @@
+                     }
+ 
+                     onClicked: {
+-                        if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) !== PrintManager.AXIS_HOMED_ALL) {
++                        if (!isHomed && !ignoreDialog) {
+                             limitFrame()
+                         }
+                         axisController.moveAxis(modelData.axis, modelData.dir, modelData.unit)
+@@ -368,13 +393,7 @@
          onReleased: {
              if(speedPad.target) {
                  speedPad.target = null
@@ -70,7 +125,7 @@
                  speedPad_close();
              }
              fanPad.target = null
-@@ -384,63 +385,282 @@
+@@ -384,63 +403,402 @@
  
      Rectangle {
          id: speedPad
@@ -91,14 +146,23 @@
 -        onTargetChanged: {
 -            if (target != null)
 -                speedMode = PrintManager.currentTask.printSpeedMode
--        }
 +        property alias speed: dial.value
 +        property bool ramping: false
- 
++        property int mode: 0 
++        property real lTemp: 210 
++        function updateDial() {
++            if (mode === 0) {
++                dial.from = 30;
++                dial.to = 180;
++                dial.value = X1Plus.Bindings.printSpeed();
++                title.text = qsTr("Print Speed");
++            }
++            canvas2.requestPaint();
+         }
+-
 -        onSpeedModeChanged: {
 -            if (target != null) {
 -                PrintManager.currentTask.printSpeedMode = speedMode
-+        
 +        function closestLevel(value) {
 +            var closestIndex = 0; 
 +            var minDiff = Math.abs(value - speedValues[0]);
@@ -145,28 +209,59 @@
 +                anchors.top: parent.top
 +                anchors.topMargin: 20
 +            }
-+           
++            Rectangle {
++                id: modeButton
++                width: 80
++                height: 40
++                color: Colors.gray_600
++                radius: 25
++                anchors.left: title.right
++                anchors.leftMargin: 20
++                anchors.top: title.top
++                visible: false
++                
++                Text {
++                    text: qsTr(" > ")
++                    anchors.centerIn: parent
++                    color: Colors.gray_600
++                    font.pixelSize: 30
++                
++                }
++
++                MouseArea {
++                    anchors.fill: parent
++                    onClicked: {
++                        speedPad.mode += 1;
++                        if (speedPad.mode >=3) speedPad.mode = 0;
++                        speedPad.updateDial();
++                    }
++                    onEntered: parent.opacity = 0.8
++                    onExited: parent.opacity = 1.0
++                }
++            }
 +            Dial {
 +                id: dial
-+                width: 190*1.4
-+                height: 190*1.4
++                width: 190*1.3
++                height: 190*1.3
 +                from: 30
 +                to:180
 +                value: X1Plus.Bindings.printSpeed()
 +                anchors.centerIn: parent
 +                stepSize:2
 +                Component.onCompleted: {
-+                    //speedPad.updateDial();
++                    speedPad.updateDial();
 +                }
 +                onValueChanged: {
 +                    dial.value = Math.round(dial.value / dial.stepSize) * dial.stepSize;
-+                    targetSpeed = dial.value;
++                    if (speedPad.mode === 0) {
++                        targetSpeed = dial.value;
++                    }
 +                }
 +                
 +                background: Rectangle {
 +                    id: background2
-+                    implicitWidth: 190*1.4
-+                    implicitHeight: 190*1.4
++                    implicitWidth: 190*1.3
++                    implicitHeight: 190*1.3
 +                    width:implicitWidth
 +                    height:implicitHeight
 +                    color: "#2F302F"
@@ -178,7 +273,6 @@
 +                        id: canvas2
 +                        anchors.fill: parent
 +                        onPaint: {
-+                            //Draw the tickmarks for the Dial type, with text labels
 +                            var ctx = getContext("2d");
 +                            var centerX = width / 2;
 +                            var centerY = height / 2;
@@ -188,8 +282,10 @@
 +                            var startAngle = 130;
 +                            var endAngle =270;
 +                            var range = dial.to - dial.from;
++                            var stepsize; 
++                          
 +                            var stepAngle = (startAngle - endAngle) / range * dial.stepSize;
-+                
++                            console.log(stepAngle,startAngle,dial.stepSize,range);
 +                            for (var i = 0; i <= range; i += dial.stepSize) {
 +                                var angle = (startAngle - i * stepAngle) * Math.PI / 180;
 +                                var outerX = centerX + radius * Math.cos(angle);
@@ -200,23 +296,26 @@
 +                                ctx.beginPath();
 +                                ctx.moveTo(outerX, outerY);
 +                                ctx.lineTo(innerX, innerY);
-+                                if (dial.from + i === Math.round(X1Plus.Bindings.printSpeed())){
-+                                    ctx.strokeStyle = "#00ff00";
-+                                } else if (dial.from + i === Math.round(targetSpeed) && speedPad.ramping){
-+                                    ctx.strokeStyle = "#FF0000";
-+                                } else {
-+                                    ctx.strokeStyle = "#6B6B6A";
++                                var currentValue = dial.from + i;
++                                if (speedPad.mode == 0) {
++                                    if (currentValue === Math.round(X1Plus.Bindings.printSpeed())){
++                                        ctx.strokeStyle = "#00ff00";
++                                    } else if (currentValue === Math.round(targetSpeed) && speedPad.ramping){
++                                        ctx.strokeStyle = "#FF0000";
++                                    } else {
++                                        ctx.strokeStyle = "#6B6B6A";
++                                    }
 +                                }
 +                                ctx.lineWidth = 2;
 +                                ctx.stroke();
 +
-+                                if (i % 10 === 0) {// number of labels
++                                if (i % 10 === 0) {// sets number of labels
 +                                    var labelRadius = radius -30; //label position
 +                                    var labelX = centerX + labelRadius * Math.cos(angle) - 10; 
 +                                    var labelY = centerY + labelRadius * Math.sin(angle) + 5;
 +                                    
-+                                    ctx.fillStyle = "#6B6B6A"; //label color
-+                                    ctx.fillText(dial.from + i, labelX, labelY);
++                                    ctx.fillStyle = "white"//"#6B6B6A"; //label color
++                                    ctx.fillText(currentValue, labelX, labelY);
 +                                }
 +                            }
 +                        }
@@ -225,9 +324,9 @@
  
 +                handle: Rectangle {
 +                    id: hand //dial handle
-+                    width: 40
-+                    height: 40
-+                    radius: 20
++                    width: 30
++                    height: 30
++                    radius: 15
 +                    color: dial.pressed ?"#4E4F4E": "#3A3B3A" 
 +                    border.color: "#eb6600"
 +                    border.width: 2
@@ -243,14 +342,46 @@
 +                            origin.y: hand.height / 2
 +                        }
 +                    ]
++                    MouseArea {
++                        id: touchArea
++                        width: parent.width*1.2
++                        height: parent.height*1.2
++                        x: parent.x
++                        y: parent.y
++                        property point handleCenter: Qt.point(hand.x + hand.width / 2, hand.y + hand.height / 2)
++
++                        onPressed: {
++                            var dx = mouse.x - touchArea.handleCenter.x;
++                            var dy = mouse.y - touchArea.handleCenter.y;
++                            dial.angle = Math.atan2(dy, dx) * 180 / Math.PI;
++                        }
++
++                        onPositionChanged: {
++                            if (pressed) {
++                                var dx = mouse.x - touchArea.handleCenter.x;
++                                var dy = mouse.y - touchArea.handleCenter.y;
++                                dial.angle = Math.atan2(dy, dx) * 180 / Math.PI;
++                            }
++                        }
++                    }
 +                }
 +                
 +                Text {
-+                    text: qsTr("Speed: %1\n\nAcc Mag: %2\nFeed rate: %3\nR: %4").arg(dial.value)
++                    text: qsTr("%1%").arg(dial.value)
++                    color: "white"
++                    font.pixelSize: 24
++                    anchors.bottom: txtParams.top
++                    anchors.bottomMargin: 10
++                    anchors.left: txtParams.left
++                    anchors.leftMargin: 15
++                }
++                
++                Text {
++                    id: txtParams
++                    text:qsTr("Acc Mag: %1\nFeed rate: %2\nR: %3")
 +                        .arg(X1Plus.GcodeGenerator.speed_interp.acceleration_magnitude( X1Plus.GcodeGenerator.speed_interp.speed_fraction(dial.value)).toFixed(2))
 +                        .arg(X1Plus.GcodeGenerator.speed_interp.feed_rate(dial.value).toFixed(2))
-+                        .arg(X1Plus.GcodeGenerator.speed_interp.speed_fraction(dial.value).toFixed(1))
-+                        
++                        .arg(X1Plus.GcodeGenerator.speed_interp.speed_fraction(dial.value).toFixed(1)) 
 +                    color: "white"
 +                    font.pixelSize: 14
 +                    anchors.centerIn: dial
@@ -265,36 +396,59 @@
 -                color: Colors.gray_300
 -                text: qsTr("Printing speed")
 +                id: currentSpeedLabel
-+                text: qsTr("Current Speed\n%1%").arg(X1Plus.Bindings.printSpeed().toFixed(1))
++                text: speedPad.closestLevel(X1Plus.Bindings.printSpeed())
 +                color: "white"
 +                font.pixelSize: 18
-+                anchors.right: parent.right
++                anchors.right: currentSpeedPecentage.left
++                anchors.top:currentSpeedPecentage.top
 +                anchors.rightMargin: 20
-+                anchors.top: parent.top
-+                anchors.topMargin:591/2-70
++                anchors.topMargin:5
              }
++            Text {
++                id: currentSpeedPecentage
++                text:("%1%").arg(X1Plus.Bindings.printSpeed().toFixed(1))
++                color: "white"
++                font.pixelSize: 36
++                anchors.left: parent.left
++                anchors.leftMargin: 120
++                anchors.bottom: dial.top
++                anchors.bottomMargin: 30
++            }
 +            
 +            Text {
 +                id: targetSpeedLabel
-+                text: qsTr("Target Speed\n%1%").arg(targetSpeed.toFixed(1).toString())
-+                color: "white"
-+                font.pixelSize: 18
-+                anchors.top: currentSpeedLabel.bottom
-+                anchors.right: currentSpeedLabel.right
-+                anchors.topMargin: 20
-+            }
-+           
-+            Text {
-+                id: closestLbl
-+                text: qsTr("'%1' mode").arg(speedPad.closestLevel(dial.value))
++                text: speedPad.closestLevel(dial.value)
 +                color: Colors.brand
-+                font.pixelSize: 24
-+                anchors.bottom: dial.top
-+                anchors.horizontalCenter: parent.horizontalCenter
-+                anchors.bottomMargin: 30
-+                horizontalAlignment: Text.AlignHCenter
++                font.pixelSize: 18
++                anchors.left: targetSpeedPercent.right
++                anchors.leftMargin: 20
++                anchors.top:targetSpeedPercent.top
++                anchors.topMargin:5
 +            }
-+   
++            Text {
++                id: targetSpeedPercent
++                text: ("%1%").arg(targetSpeed.toFixed(1).toString())
++                color: Colors.brand
++                font.pixelSize: 36
++                anchors.right: parent.right
++                anchors.rightMargin: 120
++                anchors.bottom: dial.top
++                anchors.bottomMargin: 30
+ 
+-            ZStepBar {
+-                id: stepBar
+-                width: parent.width - 260
+-                x: 160
+-                y: 120
+-                stepOffset: 127
+-                titleOffset: 60
+-                barColor: Colors.gray_800
+-                thumbIcon: "../../icon/thumb.svg"
+-                tipColor: Colors.gray_400
+-                titleColor: StateColor {
+-                    StateColorItem { color: "brand"; states: StateColor.Checked }
+-                    StateColorItem { color: "gray_200"; states: StateColor.Normal }
++            }   
 +            Item {
 +                id: buttonsContainer
 +                width: parent.width
@@ -324,17 +478,36 @@
 +                        MouseArea {
 +                            anchors.fill: parent
 +                            onClicked: {
-+                                let range = Math.abs(X1Plus.Bindings.printSpeed()-targetSpeed);
 +                                speedPad.ramping = !(speedPad.ramping);
++    
++                                let range = Math.abs(X1Plus.Bindings.printSpeed()-targetSpeed);
++                                if (range <=1) return;
++                                let delta = 2;
++                                
 +                                canvas2.requestPaint();
-+                                /* 
-+                                    1. need a way to input layers, ie 'Ramp over x layers'
-+                                    2. Determine a step size that will ensure all ramp levels are even integers (printer does not report odd numbered speed values)
-+                                            (range % steps) == 0
-+                                    3. Set a property binding to tell the printer where to start ramping
-+                                    4. Use X1Plus.GcodeGenerator.GcodeLibrary.macros.rampSpeedLevel(start_speed,end_speed,steps)
-+                                    5. Use onLayerNumChanged{} to send gcode if the layer number coincides with the step size
-+                                */
++                                if (speedPad.ramping){
++                                    let curr = (X1Plus.emulating) ? 100 : X1Plus.Bindings.layerNum();
++                                    let tot = (X1Plus.emulating) ?  200 : X1Plus.Bindings.totalLayerNum();
++                                    var tar = 0;
++                                    if (curr == tot || tot <= 1){
++                                        speedPad.ramping = false;
++                                        X1Plus.Bindings.printerStatus.updateRamp([]);
++                                        targetSpeed = X1Plus.Bindings.printSpeed();
++                                        return;
++                                    } else {
++                                        for (let i = 0; i < tot; ++i){
++                                           if ((tot - curr) % delta == 0) {
++                                                break;
++                                           } else {
++                                                delta += 1;
++                                           }
++                                        }
++                                        tar = curr + range/delta;
++                                        X1Plus.Bindings.printerStatus.updateRamp(curr,tar,X1Plus.Bindings.printSpeed(),targetSpeed,delta);
++                                        console.log(curr,tar,X1Plus.Bindings.printSpeed(),targetSpeed,delta);
++                                    }
++                                    
++                                }
 +                            }
 +                           
 +                            onEntered: parent.opacity = 0.8
@@ -360,25 +533,27 @@
 +                            font.pixelSize: 30
 +                        
 +                        }
- 
--            ZStepBar {
--                id: stepBar
--                width: parent.width - 260
--                x: 160
--                y: 120
--                stepOffset: 127
--                titleOffset: 60
--                barColor: Colors.gray_800
--                thumbIcon: "../../icon/thumb.svg"
--                tipColor: Colors.gray_400
--                titleColor: StateColor {
--                    StateColorItem { color: "brand"; states: StateColor.Checked }
--                    StateColorItem { color: "gray_200"; states: StateColor.Normal }
++
 +                        MouseArea {
 +                            anchors.fill: parent
 +                            onClicked: {
-+                                X1Plus.Bindings.printerStatus.setPrintSpeedGcode(speedPad.speed);
-+                                PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
++                                if (speedPad.mode == 0){
++                                    X1Plus.Bindings.printerStatus.setPrintSpeedGcode(speedPad.speed);
++                                    PrintManager.currentTask.printSpeed.targetTemp = targetSpeed;
++                                } else if (speedPad.mode == 1){
++                                    var fr = X1Plus.GcodeGenerator.fr.lwpla(speedPad.lTemp);
++                                    let codes = X1Plus.GcodeGenerator.M221(fr.toFixed(2));
++                                    X1Plus.Bindings.heaters.hotend(speedPad.lTemp)
++                                    X1Plus.sendGcode(codes);
++                                    console.log(codes);
++                                } else if (speedPad.mode == 2) {
++                                    let t = speedPad.lTemp
++                                    var fr = X1Plus.GcodeGenerator.fr.lwtpu(t);
++                                    let codes = X1Plus.GcodeGenerator.M221(fr.toFixed(2));
++                                    X1Plus.Bindings.heaters.hotend(t)
++                                    X1Plus.sendGcode(codes);
++                                    console.log(codes);
++                                }
 +                                speedPad.target = null;
 +                            }
 +                        }
@@ -389,30 +564,82 @@
              }
          }
      }
-@@ -498,7 +718,7 @@
+@@ -492,15 +850,21 @@
+             textColor: StateColors.get("gray_100")
+             textSize: 36
+             checked: ListView.isCurrentItem
+-            icon: "../../icon/heater_" + modelData.name + ".svg"
+-            text: modelData.currentTemp.toFixed(0)
++            icon: (modelData.name == "speed" && speedPad.ramping) ? 
++                                    "../../icon/components/ramp.svg" :
++                                    "../../icon/heater_" + modelData.name + ".svg"
++            text: (modelData.name == "speed" && speedPad.ramping) ? 
++                                    X1Plus.Bindings.printSpeed() + " / " + targetSpeed + "%"  : 
++                                        (modelData.name == "speed" && !speedPad.ramping) ? 
++                                            X1Plus.Bindings.printSpeed() + "%" : 
++                                                modelData.currentTemp.toFixed(0)
+ 
              EventTrack.itemName: "tempAndSpeed_" + modelData.name
  
-             Binding on text {
+-            Binding on text {
 -               value: speedPad.step
-+               value: targetSpeed +"%"
-                when: speedPad.target == modelData
+-               when: speedPad.target == modelData
+-            }
++            // Binding on text {
++            //    value: targetSpeed +"%"
++            //    when: speedPad.target == modelData
++            // }
+ 
+             ZText {
+                 id: separator
+@@ -536,7 +900,7 @@
+                 font: Fonts.body_28
+                 color: Colors.gray_300
+                 visible: index < (tempModel.length - 1) || !speedPad.target
+-                text: index < (tempModel.length - 1) ? "°C" : "%"
++                text: index < (tempModel.length - 1) ? "°C" : ""
              }
  
-@@ -800,7 +1020,7 @@
+             Item {
+@@ -800,7 +1164,7 @@
                  EventTrack.itemName: "bigSector_" + modelData.name
  
                  onClicked: {
 -                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) != PrintManager.AXIS_HOMED_ALL) {
-+                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) !== PrintManager.AXIS_HOMED_ALL) {
++                    if (!isHomed && !ignoreDialog) {
                          limitFrame()
                      }
                      axisController.moveAxis(modelData.axis, modelData.dir, AxisController.MM_10)
-@@ -818,7 +1038,7 @@
+@@ -818,7 +1182,7 @@
                  EventTrack.itemName: "smallSector_" + modelData.name
  
                  onClicked: {
 -                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) != PrintManager.AXIS_HOMED_ALL) {
-+                    if ((PrintManager.homedState & PrintManager.AXIS_HOMED_ALL) !== PrintManager.AXIS_HOMED_ALL) {
++                    if (!isHomed && !ignoreDialog) {
                          limitFrame()
                      }
                      axisController.moveAxis(modelData.axis, modelData.dir, AxisController.MM)
+@@ -873,11 +1237,13 @@
+         dialogStack.popupDialog(
+                     "TextConfirm", {
+                         name: "Limit Frame",
+-                        titles: [qsTr("Home"), qsTr("Close")],
++                        type: TextConfirm.YES_NO_CANCEL,
++                        titles: [qsTr("Home"), qsTr("Ignore"), qsTr("Close")],
+                         text: qsTr("Before any movement, please home all axes to find the boundary of build volume."),
+                         onYes: function() {
+                             axisController.moveCenter(PrintManager.currentTask.stage === PrintTask.PAUSED)
+-                        }
++                        },
++                        onNo: function() {ignoreDialog = true},
+                     })
+ 
+     }
+@@ -895,4 +1261,5 @@
+                         checkBoxText: qsTr("Don't show again.")
+                     })
+     }
+-}
++
++}
+\ No newline at end of file

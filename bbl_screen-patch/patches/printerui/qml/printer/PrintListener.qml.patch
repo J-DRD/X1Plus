@@ -1,6 +1,6 @@
 --- printer_ui-orig/printerui/qml/printer/PrintListener.qml
 +++ printer_ui/printerui/qml/printer/PrintListener.qml
-@@ -1,15 +1,23 @@
+@@ -1,15 +1,30 @@
  import QtQuick 2.12
  import Printer 1.0
 +import "../X1Plus.js" as X1Plus
@@ -12,16 +12,32 @@
 -
 +    property var totalLayer: X1Plus.Bindings.totalLayerNum()
 +    property var layerNum: PrintManager.currentTask.layerNum
-+   
++    property var gcodeLibrary:X1Plus.GcodeGenerator.GcodeLibrary; 
++    
++    onPrintStateChanged:{
++        X1Plus.Bindings.printerStatus.updatePrintState(printState);
++    }
++    
      onPrintingChanged: {
-         DeviceManager.power.externalWakeup()
+-        DeviceManager.power.externalWakeup()
++        X1Plus.Bindings.printerStatus.updatePrinting(printing); 
++        DeviceManager.power.externalWakeup();
      }
  
 +    onLayerNumChanged: {
-+        X1Plus.Bindings.printLayer.setCurrent();
-+        X1Plus.Bindings.printLayer.setTotal();        
++        X1Plus.Bindings.printLayer.setCurrent(layerNum);
++        X1Plus.Bindings.printLayer.setTotal(totalLayer);
++        
 +    }
 +    
      Shortcut {
          sequences: ["Stop", "Ctrl+B"]
          onActivated: {
+@@ -34,6 +49,7 @@
+         onNotify: {
+             if (type === PrintManager.Finish || type === PrintManager.Failed) {
+                 if (name == "print" && (printState == PrintTask.FINISH || printState == PrintTask.FAILED)) {
++                    X1Plus.Bindings.printerStatus.updatePrintState(printState);
+                     dialogStack.popupDialog("PrintFinish", { errorMsg: msg, name: name })
+                     return
+                 }

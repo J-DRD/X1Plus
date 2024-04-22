@@ -9,7 +9,6 @@ var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
 
 
-
 function createGcode(command, params = {}) {
     let gcode = `${command}`;
     for (const [key, value] of Object.entries(params)) {
@@ -21,26 +20,60 @@ function createGcode(command, params = {}) {
 }
 
 
-// var placeholders = {
-//     layer_num
-//     layer_z
-//     max_layer_z
-//     toolchange_count
-//     old_retract_length
-//     new_retract_length
-//     old_filament_temp
-//     new_filament_temp
-//     x_after_toolchange
-//     y_after_toolchange
-//     z_after_toolchange
-//     first_flush_volume
-//     second_flush_volume
-//     old_filament_e_feedrate
-//     new_filemnt_e_feedrate
-//     flush_length: (idx) => {return `{flush_length_${idx}}`},
-//     filament_extruder_id: () => {return `{filament_extruder_id}`},
-//     toolchange_z: () => {return `{toolchange_z}`},
-// }
+var placeholders = {
+    layer_num: () => "{layer_num}",
+    layer_z: (dz) => `{layer_z + ${dz}}`,
+    total_layer_count: () => "[total_layer_count]",
+    max_layer_z: (val) => `{max_layer_z + ${val}}`,
+    initial_extruder: () => "[initial_extruder]",
+    initial_tool: () => "[initial_tool]",
+    current_extruder: () => "[current_extruder]",
+    next_extruder: () => "[next_extruder]",
+    old_retract_length: () => "[old_retract_length]",
+    new_retract_length: () => "[new_retract_length]",
+    old_filament_temp: () => "[old_filament_temp]",
+    new_filament_temp: () => "[new_filament_temp]",
+    filament_type: (idx) => `{filament_type[${idx}]}`,
+    x_after_toolchange: () => "[x_after_toolchange]",
+    y_after_toolchange: () => "[y_after_toolchange]",
+    z_after_toolchange: () => "[z_after_toolchange]",
+    old_filament_e_feedrate: () => "{old_filament_e_feedrate}",
+    new_filemnt_e_feedrate: () => "{new_filemnt_e_feedrate}",
+    bed_temperature: (target) => `{bed_temperature[${target}]}`,
+    bed_temperature_initial_layer_single: () => "{bed_temperature_initial_layer_single}",
+    bed_temperature_initial_layer: (target) => `{bed_temperature_initial_layer[${target}]}`,
+    nozzle_temperature_initial_layer: (idx) => `{nozzle_temperature_initial_layer[${idx}]}`,
+    flush_length: (idx) => `{flush_length_${idx}}`,
+    filament_extruder_id: () =>  `{filament_extruder_id}`,
+    toolchange_z: () =>  `{toolchange_z}`,
+    outer_wall_volumetric_speed: () => "{outer_wall_volumetric_speed}",
+    curr_bed_type: () =>  `{curr_bed_type}`,
+    z_hop_types: (idx) => `z_hop_types[${idx}]`,
+    nozzle_temperature_range_high: () => "[nozzle_temperature_range_high]",
+    initial_layer_acceleration: () => "[initial_layer_acceleration]",
+    default_acceleration: () => "[default_acceleration]",
+    scan_first_layer: () => "scan_first_layer",
+    has_wipe_tower: () => "has_wipe_tower",
+    hotend_first_layer: () => M109(nozzle_temperature_initial_layer(current_extruder())),
+    bed_first_layer: () =>  M140(bed_temperature_initial_layer(current_extruder())),
+    hotend_current: () => M109(nozzle_temperature(current_extruder())),
+    bed_current: () =>  M140(bed_temperature(current_extruder())),
+    conditional: (condition,do_sth) => `{if ${condition}}${do_sth}{endif}`,
+
+}
+
+
+/** 
+ * skew compensation 
+ * usage: gcode = GcodeGenerator.M1005.xy(84.99, 84.98)
+ * or
+ * gcode = GcodeGenerator.M1005.i(0.00015)
+*/
+var M1005 = { 
+    xy: (x,y) => `M1005 X${x} Y${y}\n`,
+    i: (i) => `M1005 I${i}\n`,
+    save: () => M500,
+}
 
 
 /* update timeline */
@@ -64,8 +97,8 @@ var G28 = { /* homing */
 }
 
 /* endstops */
-function M211({ x = '', y = '', z = ''}) {
-    return this.createGcode('M211', { X: x, Y: y, Z: z});
+function M211({s='', x = '', y = '', z = ''}) {
+    return this.createGcode('M211', {S:s, X: x, Y: y, Z: z});
 }
 
 /* toggle mesh compensation */
@@ -85,6 +118,10 @@ function G90() {
 /* relative coords */
 function G91() {
     return "G91\n";
+}
+/* reset extruder position */
+function G92() {
+    return "G92 E0\n";
 }
 
 
@@ -140,7 +177,7 @@ var speed_interp = {
  *                                 Accepts: 50 (Silent), 100 (Normal), 125 (Sport), 166 (Luda)
  * @returns {string} The G-code string to set print speed
  */
-function M2042(speedPercentage) {
+function speed(speedPercentage) {
     if (speedPercentage <30 || speedPercentage > 180){
         speedPercentage = 100;
     }
@@ -154,7 +191,9 @@ function M2042(speedPercentage) {
     var feedRate = speed_interp.feed_rate(speedPercentage);
     // level from acceleration magnitude (not necessary)
     var level = speed_interp.level(accelerationMagnitude);
-    
+    if (level > 7) {
+        level = 7;
+    }
     return [
         `M204.2 K${accelerationMagnitude.toFixed(2)}`,
         `M220 K${feedRate.toFixed(2)}`,
@@ -163,13 +202,17 @@ function M2042(speedPercentage) {
     ].join(" \n") + "\n";
 }
 
-/* motion control */
+/* motion control - no extrusion */
 function G0({ x = '', y = '', z = '', accel = '' }) {
     return this.createGcode('G0', { X: x, Y: y, Z: z, F: accel });
 }
-
+/* motion control with extrusion */
 function G1({ x = '', y = '', z = '', e = '', accel = '' }) {
     return this.createGcode('G1', { X: x, Y: y, Z: z, E: e, F: accel });
+}
+/* arc */
+function G2({ z=0.6, i = 0.5, j = 0,p = 1, accel = 300 }) {
+    return this.createGcode('G2', {Z:z, I: i, J: j,P: p, F: accel });
 }
 
 var M1002 = { /* claim action and judge flag */
@@ -226,13 +269,15 @@ function M974(axis = 0)
     return `M974 Q${axis} S2 P0\n`;
 }
 
-
-function M400(sec = 0) /* pause */
-{
-    return sec > 0 ? `M400 S${sec}\n` : `M400\n`;
+/* pause */
+var M400 = {
+    pause: (t) => `M400 S${t}\n`, //delay _ seconds
+    na:()=> "M400\n", //wait for last gcode command to finish
+    pause_user_input:()=>"M400 U1\n", //pause until user presses "Resume"
 }
 
-function G4(sec = 90) /* pause */
+/* pause */
+function G4(sec = 90) 
 {
     let gcode = '';
     const fullCycles = Math.floor(sec / 90);
@@ -247,33 +292,52 @@ function G4(sec = 90) /* pause */
     return gcode;
 }
 
-function M205({x , y , z , e }) /* set jerk limits */
+/* set jerk limits */
+function M205({x , y , z , e }) 
 {
     return createGcode('M205', {X: x, Y: y, Z: z, E: e});
 }
-function M9822() /* disable motor noise cancellation */
+
+/* disable motor noise cancellation */
+function M9822()
 {
     return "M982.2 C0\n M982.2 C1\n";
 }
 
-var M106 = {/* fan control, val = 0 to 255 */
+
+/* fan control, val = 0 to 255 */
+var M106 = {
     part: (val) => `M106 P1 S${val}\n`,
     aux: (val) => `M106 P2 S${val}\n`,
     chamber: (val) => `M106 P3 S${val}\n`,
 }
 
-
-function M220() /* set feed rate (default = 100%) */
+/* set feed rate (default = 100%) */
+function M220(s=100)
 {
-    return `M220 S100\n`;
+    return `M220 S${s}\n`;
 }
 
-function M221(s) /* set flow rate (default = 100%) */
+/* set flow rate (default = 100%) */
+function M221(s) 
 {
     return `M221 S${s}\n`;
 }
 
-var M960 = { /* LED controls */
+ /* set flow rate (default = 100%) */
+function M221(s)
+{
+    return `M221 S${s}\n`;
+}
+
+ /* set acceleration limit (mm^2/s), e.g M204 S9000 */
+function M204(s)
+{
+    return `M204 S${s}\n`;
+}
+
+ /* LED controls */
+var M960 = {
     laser_vertical: (val) => {
         return `M960 S1 P${val}\n`;
     },
@@ -291,7 +355,8 @@ var M960 = { /* LED controls */
     }  
 }
 
-var M973 = {/* nozzle camera controls */
+/* nozzle camera controls */
+var M973 = {
     off: () => {
         return `M973 S4\n`;
     },
@@ -318,25 +383,35 @@ function  M622(j){
 function  M623(){
     return 'M623\n';
 }
-function  M83(){ /* set extruder to relative */
+
+/* set extruder to relative */
+function  M83(){ 
     return 'M83\n';
 }
-function  M84(){ /* disable steppers */
+
+/* disable steppers */
+function  M84(){ 
     return 'M84\n';
 }
-function M412(s){/* toggle filament runout detection */
+
+/* toggle filament runout detection */
+function M412(s){
     return `M412 S${s}\n`;
 }
-function M302(p){/* enable cold extrusion  */
+
+/* enable cold extrusion  */
+function M302(p){
     return `M302 S70 P${p}\n`;
 }
 
-function G291(z_trim) {/* set z offset */
-//z_trim = "{+0.00}"  or "{-0.04}" - string only!
+/* set z offset */
+function G291(z_trim=0) {
+//+0.00 default; -0.04 for textured PEI
     return `G29.1 Z{${z_trim}}\n`;
 }
 
-function M2012() {/* reset acceleration multiplier*/
+/* reset acceleration multiplier*/
+function M2012() {
     return `M201.2 K1.0\n`;
 }
 
@@ -348,7 +423,7 @@ const GcodeLibrary = {
             () => M622(1),
             () => M1002.gcode_claim_action(1),
             () => G29(),
-            () => M400(0),
+            () => M400.na(),
             () => M500(),
             () => M623()
         ],
@@ -363,12 +438,12 @@ const GcodeLibrary = {
                 () =>  M73(0,3),
                 () =>  M201(100),
                 () =>  G90(),
-                () =>  M400(1),
+                () =>  M400.pause(1),
                 () =>  M17(1.2, 1.2, 0.75),
                 () =>  G28.xyz,
                 () =>  G0({x: 128, y: 128, z: 5, accel: 2400}),
                 () =>  M201(1000),
-                () =>  M400(1),
+                () =>  M400.pause(1),
                 () =>  M1002.gcode_claim_action(3),
                 () =>  M970({axis: 1, a: 7, f_low: freq1    , f_high: mid, k: 0}),
                 () =>  M73(25,3),
@@ -383,7 +458,7 @@ const GcodeLibrary = {
                 () =>  M500(),
                 () =>  M975(true),       
                 () =>  G0({x: 65, y: 260, z: 10, accel: 1800}),     
-                () =>  M400(1),
+                () =>  M400.pause(1),
                 () =>  M140(0),
                 () =>  M109(0),
                 () => M1002.gcode_claim_action(0),
@@ -394,7 +469,7 @@ const GcodeLibrary = {
             exit:[
                     () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 128, y: 128, z: 1}),
-                    () =>  M400(0),
+                    () =>  M400.na(),
                     () =>  M1002.gcode_claim_action(0),
                 ],
             prepare:[
@@ -410,19 +485,19 @@ const GcodeLibrary = {
             rear_center: [
                     () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 134.8, y: 242.8, z: 0.4, accel: 3600}),
-                    () =>  M400(0),
+                    () =>  M400.na(),
                     () =>  M1002.gcode_claim_action(1),
                 ],
             front_left: [
                     () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 33.2, y: 13.2, z: 0.4, accel: 3600}),
-                    () =>  M400(0),
+                    () =>  M400.na(),
                     () =>  M1002.gcode_claim_action(1),
                 ],
             front_right:[
                     () =>  M1002.gcode_claim_action(254),
                     () =>  G1({x: 222.8, y: 13.2, z: 0.4, accel: 3600}),
-                    () =>  M400(0),
+                    () =>  M400.na(),
                     () =>  M1002.gcode_claim_action(1),
                 ]
         }
@@ -488,20 +563,25 @@ const GcodeLibrary = {
                 () => M106.part(0),             
             ]
         },
-        rampSpeedLevel: (start_speed,end_speed,steps) => {
-            let levels = [];
-            if (!Number.isInteger(steps) || steps % 2 !== 0) {
-                console.log("Steps must be even numbered")
-                return [];
+        getRampSpeed: (currentLayer, startingLayer, targetLayer, startingSpeed, targetSpeed, delta) => {
+            if (startingSpeed > targetSpeed) {
+                delta = -Math.abs(delta);
             }
-            let step = (end_speed - start_speed) / (steps - 1); 
-        
-            for (let i = 0; i < steps; i++) {
-                let current_speed = start_speed + (step * i);
-                levels.push(Math.round(current_speed));
-            }
-            return levels;
-        }
+            if (currentLayer < startingLayer) {
+                return startingSpeed; 
+            } else if (currentLayer > targetLayer) {
+                return targetSpeed; 
+            } else {
+                const rampProgress = currentLayer - startingLayer;
+                let speedChange = rampProgress * delta;  
+                let newSpeed = startingSpeed + speedChange;
+                if (startingSpeed < targetSpeed) {
+                    return Math.min(newSpeed, targetSpeed);
+                } else {
+                    return Math.max(newSpeed, targetSpeed);
+                }
+            }    
+        },
         
     },
     controls: {
@@ -525,6 +605,8 @@ const GcodeLibrary = {
             default_stepper_current: () => M17({x:1.2,y:1.2,z:0.75}),
             relative: () => G91(),
             absolute: () => G90(),
+            push_soft_endstop: () => M211({s:''}),
+            turn_off_endstops: () => M211({x:0,y:0,z:0}),
         },
         extruder:{
             extrude: (_e, _accel) => G1({e: _e, accel:_accel}),
