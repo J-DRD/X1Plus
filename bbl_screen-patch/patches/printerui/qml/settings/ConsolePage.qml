@@ -13,106 +13,198 @@ import ".."
 Item {
     id: consoleComp
     property var cmdHistory:[]
-    property var historyPlaceholder:-1
+    property int historyIndex: 0
 
-    property bool gcodeCmd: DeviceManager.getSetting("cfw_default_console",false);
+    property bool gcodeConsole: DeviceManager.getSetting("cfw_default_console",false);
     property alias inputText: inputTextBox.text;
-    
-    property var gcodes: ["History",
-                "ABL On",
-                "Toolhead:<br>Absolute",
-                "Toolhead:<br>Relative",
-                "Disable<br>Endstops",
-                "Extruder:<br>Retract",
-                "Extruder:<br>Extrude",
-                "Fan Speed:<br>Aux",
-                "Fan Speed:<br>Chamber",
-                "Fan Speed:<br>Part",
-                "Gcode<br>Claim<br>Action",
-                "Home:<br>XYZ",
-                "Home:<br>XY",
-                "Home:<br>Low<br>Precision",
-                "Input<br>Shaper<br>On/Off",
-                "Jerk<br>Limits",
-                "K-value",
-                "LiDAR:<br>Laser 1",
-                "LiDAR:<br>Laser 2",
-                "LiDAR:<br>Camera on",
-                "LiDAR:<br>Camera off",
-                "LiDAR:<br>Camera<br>exposure",
-                "LiDAR:<br>Camera<br>capture",
-                "LEDs:<br>Nozzle",
-                "LEDs:<br>Toolhead",
-                "Move<br>Bed Down",
-                "Move<br>Bed Up",
-                "Move<br>Toolhead",
-                "Noise<br>Cancellation<br>Off",
-                "Pause<br>(G4)",
-                "Pause<br>(M400)",
-                "Print Speed:<br>50%",
-                "Print Speed:<br>100%" ,
-                "Print Speed:<br>120%",
-                "Print Speed:<br>166%",
-                "Timeline<br>Update",
-                "Reset<br>Feed Rate",
-                "Reset<br>Flow Rate",
-                "Save<br>(M500)",
-                "Stepper<br>Current",
-                "Temp:<br>Nozzle",
-                "Temp:<br>Bed",
-                "Temp:<br>Wait for<br>nozzle",
-                "Temp:<br>Wait for<br>bed"
-                ]
-    property var gcode_actions: ["history",
-                X1Plus.GcodeGenerator.G292(1),
-                X1Plus.GcodeGenerator.G90(),
-                X1Plus.GcodeGenerator.G91(),
-                X1Plus.GcodeGenerator.M211({x:0,y:0,z:0}),
-                X1Plus.GcodeGenerator.G1({e: -5, accel: 300}),
-                X1Plus.GcodeGenerator.G1({e: 5, accel: 300}),
-                X1Plus.GcodeGenerator.M106.aux(255),
-                X1Plus.GcodeGenerator.M106.chamber(255),
-                X1Plus.GcodeGenerator.M106.part(255),
-                X1Plus.GcodeGenerator.M1002.gcode_claim_action(0),
-                X1Plus.GcodeGenerator.G28.xyz(),
-                X1Plus.GcodeGenerator.G28.xy(),
-                X1Plus.GcodeGenerator.G28.z_low_precision(),
-                X1Plus.GcodeGenerator.M975(true),
-                X1Plus.GcodeGenerator.M205({x:0,y:0,z:0, e:0}),
-                X1Plus.GcodeGenerator.M900(0.01,1,1000),
-                X1Plus.GcodeGenerator.M960.laser_vertical(1),
-                X1Plus.GcodeGenerator.M960.laser_horizontal(1),
-                X1Plus.GcodeGenerator.M973.on(),
-                X1Plus.GcodeGenerator.M973.off(),  
-                X1Plus.GcodeGenerator.M973.expose(2,600),
-                X1Plus.GcodeGenerator.M973.capture(1,1),
-                X1Plus.GcodeGenerator.M960.nozzle(1),
-                X1Plus.GcodeGenerator.M960.toolhead(1),
-                X1Plus.GcodeGenerator.G91() + '\\n' + X1Plus.GcodeGenerator.G0({z:10,accel:1200}), 
-                X1Plus.GcodeGenerator.G91() + '\\n' + X1Plus.GcodeGenerator.G0({z:-10,accel:1200}), 
-                X1Plus.GcodeGenerator.G0({x:228,y:253,z:8,accel:1200}),
-                X1Plus.GcodeGenerator.M9822(),
-                X1Plus.GcodeGenerator.M400(50),
-                X1Plus.GcodeGenerator.G4(50),
-                X1Plus.GcodeGenerator.speed(50),
-                X1Plus.GcodeGenerator.speed(100),
-                X1Plus.GcodeGenerator.speed(124),
-                X1Plus.GcodeGenerator.speed(166),
-                X1Plus.GcodeGenerator.M73(0,18),
-                X1Plus.GcodeGenerator.M221(100),
-                X1Plus.GcodeGenerator.M220(),
-                X1Plus.GcodeGenerator.M500(),
-                X1Plus.GcodeGenerator.M17(0.3,0.3,0.3),
-                X1Plus.GcodeGenerator.M104(250),
-                X1Plus.GcodeGenerator.M140(100),
-                X1Plus.GcodeGenerator.M109(250),
-                X1Plus.GcodeGenerator.M190(55)
-                ]
-    property var cmds: ["History"," $ ","  ( )  "," ` ", "  { }  ","  |  ","  -  ","  &  ","  /  ", "reboot","awk ","cat ", "chmod ","chown ", "chroot", "cp ","date -s ", "dd ", "df ", "echo ","grep", "head ","ifconfig", "iptables ", "kill ","killall ","ln -s","ls -l ","mount ","mv ","pgrep ","pidof","ping -c 1","poweroff","print ","ps aux ", "ps -ef ", "pwd", "remount", "rm ", "sed","sort","tar","test","touch ", "uname -a"]
+    property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
+    property bool ignoreDialog: false;
+    property var gcodeLibrary: X1Plus.GcodeGenerator
+    property var gcodeCommands: [
+        {
+            name: "History",
+            action: "command history"
+        },
+        {
+            name: "ABL On",
+            action: gcodeLibrary.G292(1)
+        },
+        {
+            name: "Toolhead:<br>Absolute",
+            action: gcodeLibrary.G90()
+        },
+        {
+            name: "Toolhead:<br>Relative",
+            action: gcodeLibrary.G91()
+        },
+        {
+            name: "Disable<br>Endstops",
+            action: gcodeLibrary.M211({x:0, y:0, z:0})
+        },
+        {
+            name: "Extruder:<br>Retract",
+            action: gcodeLibrary.G1({e: -5, accel: 300})
+        },
+        {
+            name: "Extruder:<br>Extrude",
+            action: gcodeLibrary.G1({e: 5, accel: 300})
+        },
+        {
+            name: "Fan Speed:<br>Aux",
+            action: gcodeLibrary.M106.aux(255)
+        },
+        {
+            name: "Fan Speed:<br>Chamber",
+            action: gcodeLibrary.M106.chamber(255)
+        },
+        {
+            name: "Fan Speed:<br>Part",
+            action: gcodeLibrary.M106.part(255)
+        },
+        {
+            name: "Skew<br>Correction",
+            action: gcodeLibrary.M1005.i(0.001)
+        },
+        {
+            name: "Home:<br>XYZ",
+            action: gcodeLibrary.G28.xyz()
+        },
+        {
+            name: "Home:<br>XY",
+            action: gcodeLibrary.G28.xy()
+        },
+        {
+            name: "Home:<br>Low<br>Precision",
+            action: gcodeLibrary.G28.z_low_precision()
+        },
+        {
+            name: "Input<br>Shaper<br>On/Off",
+            action: gcodeLibrary.M975(true)
+        },
+        {
+            name: "Jerk<br>Limits",
+            action: gcodeLibrary.M205({x:0, y:0, z:0, e:0})
+        },
+        {
+            name: "K-value",
+            action: gcodeLibrary.M900(0.01, 1, 1000)
+        },
+        {
+            name: "Toolhead<br>Laser 1",
+            action: gcodeLibrary.M960.laser_vertical(1)
+        },
+        {
+            name: "Toolhead<br>Laser 2",
+            action: gcodeLibrary.M960.laser_horizontal(1)
+        },
+        {
+            name: "Toolhead<br>Camera<br>On",
+            action: gcodeLibrary.M973.on()
+        },
+        {
+            name: "Toolhead<br>Camera<br>Off",
+            action: gcodeLibrary.M973.off()
+        },
+        {
+            name: "Toolhead<br>Camera<br>Exposure",
+            action: gcodeLibrary.M973.expose(2, 600)
+        },
+        {
+            name: "Toolhead<br>Camera<br>Capture",
+            action: gcodeLibrary.M973.capture(1, 1)
+        },
+        {
+            name: "Toolhead<br>LED",
+            action: gcodeLibrary.M960.nozzle(1)
+        },
+        {
+            name: "Z-axis<br>down",
+            action: gcodeLibrary.G91() + gcodeLibrary.G0({z:5,accel:200})
+        },
+        {
+            name: "Z-axis<br>up",
+            action: gcodeLibrary.G91() + gcodeLibrary.G0({z:-5,accel:200})
+
+        },
+        {
+            name: "Move<br>toolhead",
+            action: gcodeLibrary.G91() + gcodeLibrary.G0({x:228,y:253,z:8,accel:1200})
+        },
+        {
+            name: "Disable<br>Motor<br>Noise<br>Cancellation",
+            action: gcodeLibrary.M9822()
+        },
+        {
+            name: "Pause<br>(G4)",
+            action: gcodeLibrary.M960.toolhead(1)
+        },
+        {
+            name: "Pause<br>(M400)",
+            action: gcodeLibrary.M960.toolhead(1)
+        },
+        {
+            name: "Print<br>speed<br>50%",
+            action: gcodeLibrary.speed(50)
+        },
+        {
+            name: "Print<br>speed<br>100%",
+            action: gcodeLibrary.speed(100)
+        },
+        {
+            name: "Print<br>speed<br>124%",
+            action: gcodeLibrary.speed(124)
+        },
+        {
+            name: "Print<br>speed<br>166%",
+            action: gcodeLibrary.speed(166)
+        },
+        {
+            name: "Timeline<br>Update",
+            action: gcodeLibrary.M960.toolhead(1)
+        },
+        {
+            name: "Reset<br>Feed Rate",
+            action: gcodeLibrary.M960.toolhead(1)
+        },
+        {
+            name: "Reset<br>Flow Rate",
+            action: gcodeLibrary.M960.toolhead(1)
+        },
+        {
+            name: "M500",
+            action: gcodeLibrary.M960.toolhead(1)
+        },  
+        {
+            name: "Timeline<br>Update",
+            action: gcodeLibrary.M960.toolhead(1)
+        },  
+        {
+            name: "Stepper<br>Current",
+            action: gcodeLibrary.M17(0.3,0.3,0.3)
+        },  
+        {
+            name: "Nozzle<br>Temp",
+            action: gcodeLibrary.M104(250)
+        },  
+        {
+            name: "Nozzle<br>Temp<br>(delay)",
+            action: gcodeLibrary.M109(250)
+        },  
+        {
+            name: "Bed<br>Temp",
+            action: gcodeLibrary.M140(55)
+        },  
+        {
+            name: "Bed Temp<br>(delay)",
+            action: gcodeLibrary.M190(55)
+        }
+
+    ]
+    property var shellCommands: ["History"," $ ","  ( )  "," ` ", "  { }  ","  |  ","  -  ","  &  ","  /  ", "reboot","awk ","cat ", "chmod ","chown ", "chroot", "cp ","date -s ", "dd ", "df ", "echo ","grep", "head ","ifconfig", "iptables ", "kill ","killall ","ln -s","ls -l ","mount ","mv ","pgrep ","pidof","ping -c 1","poweroff","print ","ps aux ", "ps -ef ", "pwd", "remount", "rm ", "sed","sort","tar","test","touch ", "uname -a"]
     property var outputText:""
     property string savePath
-    property string space: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'
-    
+    property string space: '       '
+
     MarginPanel {
         id: outputPanel
         width: 1130
@@ -146,33 +238,27 @@ Item {
                 textFormat: Qt.PlainText //RichText is way too slow on the printer
                 readOnly: true
                 font: outputText.length == 0 ? Fonts.body_24 : Fonts.body_18
-                color: Colors.gray_100
-                text: outputText
-                placeholderText: gcodeCmd 
-                    ? qsTr("This interface allows you to send G-code commands to the printer. You can enter commands " +
+                color: outputText.length == 0 ? Colors.gray_300 : Colors.gray_100
+                wrapMode: TextEdit.Wrap
+                text: outputText.length != 0 ? outputText :
+                      gcodeConsole ? qsTr("This interface allows you to send G-code commands to the printer. You can enter commands " +
                         "with the virtual keyboard, or put together commands from the shortcut bar at the bottom of " +
                         "the screen. The printer's G-code parser is somewhat picky; here are some tips for how to placate " +
-                        "it: ") +
-                    "<br><br>" +
+                        "it: \n\n") +
                     qsTr("Commands are case sensitive; the first character of a command is always a capital letter, " +
-                        "followed by a number. For example, to set the aux fan to full speed, use M106 P2 S255:") +
-                    "<br>" +
-                    space + qsTr("M106: G-code command for fan control") + "<br>" +
-                    space + qsTr("P2: parameter to select which fan (aux = 2)") + "<br>" +
-                    space + qsTr("S255: parameter to set fan speed (0 to 255)") +
-                    "<br><br>" +
+                        "followed by a number. For example, to set the aux fan to full speed, use M106 P2 S255:\n") +
+                    space + qsTr("M106: G-code command for fan control\n") +
+                    space + qsTr("P2: parameter to select which fan (aux = 2)\n") +
+                    space + qsTr("S255: parameter to set fan speed (0 to 255)\n\n") +
                     qsTr("For multi-line commands, each G-code command must be separated by the newline escape " +
-                        "sequence, \\n. For example:") +
-                    "<br>" +
-                    space + qsTr("M106 P2 S255\\nG4 S5\\nM106 P2 S0") +
-                    "<br><br>" +
+                        "sequence, \\n. For example:\n") +
+                    space + qsTr("M106 P2 S255\\nG4 S5\\nM106 P2 S0\n\n") +
                     space + qsTr("Aux fan to 255 -> Wait 5 sec -> Aux fan to 0")
                     : qsTr("This interface allows you to run commands on your printer as root. You can enter commands " +
                         "with the virtual keyboard, or put together commands from the shortcut bar at the bottom of " +
                         "the screen. Commands are executed synchronously, so long-running commands or commands " +
                         "that require user input may hang the UI; use caution! This is intended as a quick diagnostic " +
-                        "tool, but for more intensive tasks, consider SSHing to the printer instead.") +
-                    "<br><br>" +
+                        "tool, but for more intensive tasks, consider SSHing to the printer instead.\n\n") +
                     qsTr("WARNING: It is possible to do permanent, irreversible damage to your printer from a root " +
                         "console. Do not enter commands unless you understand what you are typing.")
 
@@ -222,14 +308,14 @@ Item {
             width: parent.width
             height: 105
             orientation: ListView.Horizontal
-            model: gcodeCmd ? gcodes : cmds
+            model: gcodeConsole ? gcodeCommands : shellCommands
             clip:true
             delegate: Item {
                 id: itm
-                width: (index == 0) ? 100 : gcodeCmd ? 130 : (index < 8) ? 70 : 130
+                width: (index == 0) ? 100 : gcodeConsole ? 130 : (index < 8) ? 70 : 130
                 height: hotkeysList.height
                 ZButton {
-                    text: modelData
+                    text: gcodeConsole ? modelData.name : modelData
                     width: parent.width
                     height: hotkeysList.height-10
                     type: ZButtonAppearance.Tertiary
@@ -240,22 +326,11 @@ Item {
                     //cornerRadius: width / 2
                     onClicked: {
                         if (index == 0 ){
-                            if (cmdHistory.length == 0) return;
-                            
-                                inputText = cmdHistory[historyPlaceholder];
-                                historyPlaceholder += -1;
-                                if (historyPlaceholder < 1) {
-                                    historyPlaceholder = cmdHistory.length - 1;
-                                }
+                            navigateHistory(true);
                         } else {
-                            if (gcodeCmd){
-                                if (inputText.trim().length > 0) inputText += "\\n";
-                                inputText += gcode_actions[index]
-                            } else {
-                                let cmd = cmds[index].trim().replace("<br>","");
-                                if (index < 9) inputText += inputText;
-                                inputText += cmd;
-                            }
+                            let commandToAdd = gcodeConsole ? modelData.action : shellCommands[index].trim().replace("<br>", "");
+                            if (inputText.trim().length > 0 && gcodeConsole) inputText += "\\n";
+                            inputText += commandToAdd;
                         }
                     }
                 }
@@ -280,7 +355,19 @@ Item {
             }
         }
     }
+    
 
+    function navigateHistory(up) {
+        if (cmdHistory.length === 0) return;
+
+        if (up) {
+            historyIndex = (historyIndex + 1) % cmdHistory.length;
+        } else {
+            historyIndex = (historyIndex - 1 + cmdHistory.length) % cmdHistory.length;
+        }
+
+        inputText = cmdHistory[historyIndex];
+    }
     function timestamp(offset){
         const now = new Date();
         now.setDate(now.getDate()-offset);
@@ -293,19 +380,26 @@ Item {
         return hrs + mins + ms;
     }
     function sendCommand(str){
-        console.log("[x1p] executing command ", str);
         try {
-            let rs = X1PlusNative.popen(`${str}`);
-            console.log("[x1p] executed command ", rs);
-            return rs;
+            if (gcodeConsole) {
+                console.log("[x1p] publishing gcode ", str);
+                X1Plus.sendGcode(str);
+                cmdHistory.push(str);
+                return true;
+            } else {
+                let rs = X1PlusNative.popen(`${str}`);
+                console.log("[x1p] executed command ", rs);
+                cmdHistory.push(str);
+                return true;
+            }
         } catch (e) {
             console.log("[x1p] error executing command", e);
-            return "";
+            return false;
         }
     }
+
     MarginPanel{
         id:inputPanel
-        property var lastCmd:""
         width: parent.width
         height:80
         anchors.left: parent.left
@@ -336,22 +430,24 @@ Item {
                 border.color: Colors.gray_400
                 border.width: 2
                 anchors.verticalCenter: parent.verticalCenter
-                x: gcodeCmd ? parent.width - width : 0
+                x: gcodeConsole ? parent.width - width : 0
                 Behavior on x { PropertyAnimation {} }
             }
             
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    gcodeCmd = !gcodeCmd;
+                    gcodeConsole = !gcodeConsole;
                     outputText = "";
                     inputText = "";
-                    DeviceManager.putSetting("cfw_default_console", gcodeCmd);
+                    DeviceManager.putSetting("cfw_default_console", gcodeConsole);
+                    cmdHistory = [];
+                    historyIndex = 0;
                 }
             }
             
             Image {
-                source: gcodeCmd ? "../../icon/components/console_shell.svg" : "../../icon/components/console_shell_active.svg"
+                source: gcodeConsole ? "../../icon/components/console_shell.svg" : "../../icon/components/console_shell_active.svg"
                 height: parent.height * 0.6
                 width: height
                 anchors.verticalCenter: parent.verticalCenter
@@ -359,7 +455,7 @@ Item {
             }
             
             Image {
-                source: gcodeCmd ? "../../icon/components/console_gcode_active.svg" : "../../icon/components/console_gcode.svg"
+                source: gcodeConsole ? "../../icon/components/console_gcode_active.svg" : "../../icon/components/console_gcode.svg"
                 height: parent.height * 0.6
                 width: height
                 anchors.verticalCenter: parent.verticalCenter
@@ -379,11 +475,11 @@ Item {
             selectByMouse: true
             text: ""//inputText
             verticalAlignment: TextInput.AlignVCenter
-            inputMethodHints: gcodeCmd ? Qt.ImhAutoUppercase | Qt.ImhPreferUppercase | Qt.ImhPreferNumbers
+            inputMethodHints: gcodeConsole ? Qt.ImhAutoUppercase | Qt.ImhPreferUppercase | Qt.ImhPreferNumbers
                                 | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhLatinOnly
                                 : Qt.ImhNoAutoUppercase | Qt.ImhPreferLowercase | Qt.ImhPreferNumbers
                                 | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhLatinOnly
-            placeholderText: gcodeCmd ? qsTr("enter a G-code command")
+            placeholderText: gcodeConsole ? qsTr("enter a G-code command")
                                       : qsTr("enter a shell command to run as root")
             placeholderTextColor: Colors.gray_400
             background: Rectangle {
@@ -408,42 +504,30 @@ Item {
             width: 60
             //cornerRadius: width / 2
             property string out
-            property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
             onClicked: {
+                if (printing && !ignoreDialog) {
+                    dialogStack.popupDialog(
+                        "TextConfirm", {
+                            name: "Limit Frame",
+                            type: TextConfirm.YES_NO_CANCEL,
+                            titles: [qsTr("Home"), qsTr("Ignore"), qsTr("Close")],
+                            text: qsTr("Printer is busy! Are you sure you want to publish this command? Press ignore to hide this message."),
+                            onNo: function() {ignoreDialog = true},
+                            OnCancel: function () {return},
+                    });
+                }
                 var inputCmd = inputText.trim();
                 if (inputCmd.length <1) return;
                 inputCmd = inputCmd.replace(/\\n/g, '\n  ');
-                
-                if (gcodeCmd){
-                    
-                    try {
-                        if (printing) {
-                            out = qsTr("Printer is running! Cannot execute gcode now");
-                        } else {
-                            X1Plus.sendGcode(inputCmd);
-                        }
-                    } catch (e){
-                        
-                    }
-                    out = qsTr(">Gcode command published to device\n  ");
-                }  else {
-                    
-                    out = sendCommand(inputCmd);
-                    inputPanel.lastCmd= inputCmd;
-                    
-
-                }
-                cmdHistory.push(inputCmd);
-                historyPlaceholder = cmdHistory.length-1;
-                if (outputText != "")
-                    outputText += "\n\n";
-                var origHeight = outputText == "" ? 0 : outputTextArea.contentHeight;
-                var ts = timestamp(0) + "[root]:";
-                outputText += ts + inputCmd  + "\n" + out;
-                if (!gcodeCmd) {
+                if (sendCommand(inputCmd)) {
+                    if (gcodeConsole) out = qsTr(">Gcode command published to device\n  ");
+                    if (outputText != "") outputText += "\n\n";
+                    var origHeight = outputText == "" ? 0 : outputTextArea.contentHeight;
+                    var ts = timestamp(0) + "[root]:";
+                    outputText += ts + inputCmd  + "\n" + out;
+                    inputText = "";
                     termScroll.scroll(origHeight);
-                }
-                inputText = "";
+                }                
             }
         }
 
@@ -463,12 +547,12 @@ Item {
     
                 dialogStack.popupDialog(
                         "TextConfirm", {
-                            name: gcodeCmd ? qsTr("Export console log"):qsTr("Export Gcode macro"),
+                            name: gcodeConsole ? qsTr("Export console log"):qsTr("Export Gcode macro"),
                             type: TextConfirm.YES_NO,
                             defaultButton: 0,
                             text: qsTr("Export console output to a log file?"),
                             onYes: function() {
-                                if (gcodeCmd) {
+                                if (gcodeConsole) {
                                     pathDialog(`/mnt/sdcard/x1plus/gcode_${timestamp(0)}.log`,savePath);                 
                                 } else {
                                     pathDialog(`/mnt/sdcard/x1plus/console_${timestamp(0)}.log`,savePath);                 
