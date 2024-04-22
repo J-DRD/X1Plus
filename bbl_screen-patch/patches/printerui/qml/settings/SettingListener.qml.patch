@@ -129,7 +129,15 @@
                              }
                              versionNotify = false
                          }
-@@ -98,6 +166,7 @@
+@@ -89,6 +161,7 @@
+     }
+ 
+     onPrintIdleChanged: {
++        X1Plus.Bindings.printerStatus.setIdle(sleep);
+         if (printIdle)
+             updateNotifyTimer.start()
+     }
+@@ -98,6 +171,7 @@
      property var power: DeviceManager.power
      property bool sleep: power.hasSleep
      property bool aboutToSleep: power.aboutToSleep
@@ -137,7 +145,15 @@
  
      anchors.fill: parent
      color: sleep ? (blackColor ? Colors.gray_800 : "#EFEFEF") : "#80000000"
-@@ -165,7 +234,7 @@
+@@ -140,6 +214,7 @@
+     }
+ 
+     onSleepChanged: {
++        X1Plus.Bindings.printerStatus.setSleep(sleep);
+         console.log("onSleepChanged " + sleep)
+         if (sleep) {
+             visible = true
+@@ -165,7 +240,7 @@
              blackColor = !blackColor
          }
      }
@@ -146,7 +162,7 @@
      Connections {
          target: DeviceManager
          ignoreUnknownSignals: false
-@@ -219,14 +288,14 @@
+@@ -219,14 +294,14 @@
              }
          }
      }

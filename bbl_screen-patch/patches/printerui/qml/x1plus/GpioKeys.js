@@ -126,18 +126,20 @@ function _handleButton(button, event) {
         return;
     }
     console.log("[x1p] gpio button", config.action, button, event,currentTime,lastEventTime); 
+    let printIdle = X1Plus.Bindings.printIdle();
+    let hasSleep = X1Plus.Bindings.hasSleep();
     switch (config.action) {
         case ACTION_REBOOT:
             _X1PlusNative.system(`reboot`);
             break;
         case ACTION_PAUSE_PRINT:
-            if (!X1Plus.isIdle()) { X1Plus.PrintManager.currentTask.pause() };
+            if (!printIdle) { X1Plus.PrintManager.currentTask.pause() };
             break;
         case ACTION_ABORT_PRINT:
-            if (!X1Plus.isIdle()) { X1Plus.PrintManager.currentTask.abort() };
+            if (!hasSleep) { X1Plus.PrintManager.currentTask.abort() };
             break;
         case ACTION_TOGGLE_SCREENSAVER:
-            if (!X1Plus.hasSleep()) {
+            if (!hasSleep) {
                 X1Plus.DeviceManager.power.switchSleep();
             } else {
                 X1Plus.DeviceManager.power.externalWakeup();

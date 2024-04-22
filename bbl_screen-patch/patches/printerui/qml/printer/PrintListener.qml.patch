@@ -1,6 +1,32 @@
 --- printer_ui-orig/printerui/qml/printer/PrintListener.qml
 +++ printer_ui/printerui/qml/printer/PrintListener.qml
-@@ -48,6 +48,10 @@
+@@ -1,14 +1,24 @@
+ import QtQuick 2.12
+ import Printer 1.0
++import "../X1Plus.js" as X1Plus
+ 
+ Item {
+ 
+     property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
+     property var printState: PrintManager.currentTask.state
+-
++    property var layerNum: PrintManager.currentTask.layerNum
++    property var totalLayerNum: PrintManager.currentTask.totalLayerNum
++    
+     onPrintingChanged: {
+         DeviceManager.power.externalWakeup()
+     }
++    onLayerNumChanged:{
++        X1Plus.Bindings.printerStatus.setLayer(layerNum);
++        X1Plus.Bindings._setTotalLayerNum(totalLayerNum);    
++    }
++    onPrintStateChanged:{
++        X1Plus.Bindings.printerStatus.setState(printState);
++    }
+ 
+     Shortcut {
+         sequences: ["Stop", "Ctrl+B"]
+@@ -39,6 +49,10 @@
                  }
              }
  
