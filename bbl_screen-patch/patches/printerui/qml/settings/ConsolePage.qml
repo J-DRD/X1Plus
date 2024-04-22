@@ -13,11 +13,15 @@ import ".."
 Item {
     id: consoleComp
     property var cmdHistory:[]
-    property var gencode: X1Plus.GcodeGenerator
+    property var historyPlaceholder:-1
+
     property bool gcodeCmd: DeviceManager.getSetting("cfw_default_console",false);
-    property var gcodes: ["ABL On/Off",
-                "Coordinates:<br>Absolute",
-                "Coordinates:<br>Relative",
+    property alias inputText: inputTextBox.text;
+    
+    property var gcodes: ["History",
+                "ABL On",
+                "Toolhead:<br>Absolute",
+                "Toolhead:<br>Relative",
                 "Disable<br>Endstops",
                 "Extruder:<br>Retract",
                 "Extruder:<br>Extrude",
@@ -54,58 +58,60 @@ Item {
                 "Reset<br>Flow Rate",
                 "Save<br>(M500)",
                 "Stepper<br>Current",
-                "Temperature:<br>Nozzle",
-                "Temperature:<br>Bed",
-                "Temperature:<br>Bed + Wait"
+                "Temp:<br>Nozzle",
+                "Temp:<br>Bed",
+                "Temp:<br>Wait for<br>nozzle",
+                "Temp:<br>Wait for<br>bed"
                 ]
-    property var gcode_actions: [
-                gencode.G292(1),
-                gencode.G90(),
-                gencode.G91(),
-                gencode.M211({x:0,y:0,z:0}),
-                gencode.G1({e: -5, accel: 300}),
-                gencode.G1({e: 5, accel: 300}),
-                gencode.M106(gencode.FANS.AUX_FAN,255),
-                gencode.M106(gencode.FANS.CHAMBER_FAN,255),
-                gencode.M106(gencode.FANS.PART_FAN,255),
-                gencode.M1002({action_code:3, action:1}),
-                gencode.G28(0),
-                gencode.G28(4),
-                gencode.G28(1),
-                gencode.M975(true),
-                gencode.M221({x:0,y:0,z:0}),
-                gencode.M900(0.01,1,1000),
-                gencode.M960({type:gencode.LEDS.LASER_VERTICAL,val:1}),
-                gencode.M960({type:gencode.LEDS.LASER_HORIZONTAL,val:1}),
-                gencode.M973({action:gencode.OV2740.ON}),
-                gencode.M973({action:gencode.OV2740.OFF}),  
-                gencode.M973({action:gencode.OV2740.EXPOSE,num:2, expose:600}),
-                gencode.M973({action:gencode.OV2740.CAPTURE, num:1, expose:1}),
-                gencode.M960({type:gencode.LEDS.LED_NOZZLE,val:1}),
-                gencode.M960({type:gencode.LEDS.LED_TOOLHEAD,val:1}),
-                gencode.G91() + '\\n' + gencode.G0({z:10,accel:1200}), 
-                gencode.G91() + '\\n' + gencode.G0({z:-10,accel:1200}), 
-                gencode.G0({x:228,y:253,z:8,accel:1200}),
-                gencode.M9822(),
-                gencode.M400(50),
-                gencode.G4(50),
-                gencode.M1009(4),
-                gencode.M1009(5),
-                gencode.M1009(6),
-                gencode.M1009(7),
-                gencode.M73(0,18),
-                gencode.M221({x:-1,y:-1,z:-1}),
-                gencode.M220(),
-                gencode.M500(),
-                gencode.M17(0.3,0.3,0.3),
-                gencode.M109(250),
-                gencode.M140(100),
-                gencode.M140(55,true)
+    property var gcode_actions: ["history",
+                X1Plus.GcodeGenerator.G292(1),
+                X1Plus.GcodeGenerator.G90(),
+                X1Plus.GcodeGenerator.G91(),
+                X1Plus.GcodeGenerator.M211({x:0,y:0,z:0}),
+                X1Plus.GcodeGenerator.G1({e: -5, accel: 300}),
+                X1Plus.GcodeGenerator.G1({e: 5, accel: 300}),
+                X1Plus.GcodeGenerator.M106.aux(255),
+                X1Plus.GcodeGenerator.M106.chamber(255),
+                X1Plus.GcodeGenerator.M106.part(255),
+                X1Plus.GcodeGenerator.M1002.gcode_claim_action(0),
+                X1Plus.GcodeGenerator.G28.xyz(),
+                X1Plus.GcodeGenerator.G28.xy(),
+                X1Plus.GcodeGenerator.G28.z_low_precision(),
+                X1Plus.GcodeGenerator.M975(true),
+                X1Plus.GcodeGenerator.M205({x:0,y:0,z:0, e:0}),
+                X1Plus.GcodeGenerator.M900(0.01,1,1000),
+                X1Plus.GcodeGenerator.M960.laser_vertical(1),
+                X1Plus.GcodeGenerator.M960.laser_horizontal(1),
+                X1Plus.GcodeGenerator.M973.on(),
+                X1Plus.GcodeGenerator.M973.off(),  
+                X1Plus.GcodeGenerator.M973.expose(2,600),
+                X1Plus.GcodeGenerator.M973.capture(1,1),
+                X1Plus.GcodeGenerator.M960.nozzle(1),
+                X1Plus.GcodeGenerator.M960.toolhead(1),
+                X1Plus.GcodeGenerator.G91() + '\\n' + X1Plus.GcodeGenerator.G0({z:10,accel:1200}), 
+                X1Plus.GcodeGenerator.G91() + '\\n' + X1Plus.GcodeGenerator.G0({z:-10,accel:1200}), 
+                X1Plus.GcodeGenerator.G0({x:228,y:253,z:8,accel:1200}),
+                X1Plus.GcodeGenerator.M9822(),
+                X1Plus.GcodeGenerator.M400(50),
+                X1Plus.GcodeGenerator.G4(50),
+                X1Plus.GcodeGenerator.speed(50),
+                X1Plus.GcodeGenerator.speed(100),
+                X1Plus.GcodeGenerator.speed(124),
+                X1Plus.GcodeGenerator.speed(166),
+                X1Plus.GcodeGenerator.M73(0,18),
+                X1Plus.GcodeGenerator.M221(100),
+                X1Plus.GcodeGenerator.M220(),
+                X1Plus.GcodeGenerator.M500(),
+                X1Plus.GcodeGenerator.M17(0.3,0.3,0.3),
+                X1Plus.GcodeGenerator.M104(250),
+                X1Plus.GcodeGenerator.M140(100),
+                X1Plus.GcodeGenerator.M109(250),
+                X1Plus.GcodeGenerator.M190(55)
                 ]
-    property var cmds: [" $ ","  ( )  "," ` ", "  { }  ","  |  ","  -  ","  &  ","  /  ", "reboot","awk ","cat ", "chmod ","chown ", "chroot", "cp ","date -s ", "dd ", "df ", "echo ","grep", "head ","ifconfig", "iptables ", "kill ","killall ","ln -s","ls -l ","mount ","mv ","pgrep ","pidof","ping -c 1","poweroff","print ","ps aux ", "ps -ef ", "pwd", "remount", "rm ", "sed","sort","tar","test","touch ", "uname -a"]
+    property var cmds: ["History"," $ ","  ( )  "," ` ", "  { }  ","  |  ","  -  ","  &  ","  /  ", "reboot","awk ","cat ", "chmod ","chown ", "chroot", "cp ","date -s ", "dd ", "df ", "echo ","grep", "head ","ifconfig", "iptables ", "kill ","killall ","ln -s","ls -l ","mount ","mv ","pgrep ","pidof","ping -c 1","poweroff","print ","ps aux ", "ps -ef ", "pwd", "remount", "rm ", "sed","sort","tar","test","touch ", "uname -a"]
     property var outputText:""
     property string savePath
-    property string space: '       '
+    property string space: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'
     
     MarginPanel {
         id: outputPanel
@@ -140,35 +146,37 @@ Item {
                 textFormat: Qt.PlainText //RichText is way too slow on the printer
                 readOnly: true
                 font: outputText.length == 0 ? Fonts.body_24 : Fonts.body_18
-                color: outputText.length == 0 ? Colors.gray_300 : Colors.gray_100
-                text: outputText.length != 0 ? outputText :
-                      gcodeCmd ? qsTr("This interface allows you to send G-code commands to the printer. You can enter commands " +
+                color: Colors.gray_100
+                text: outputText
+                placeholderText: gcodeCmd 
+                    ? qsTr("This interface allows you to send G-code commands to the printer. You can enter commands " +
                         "with the virtual keyboard, or put together commands from the shortcut bar at the bottom of " +
                         "the screen. The printer's G-code parser is somewhat picky; here are some tips for how to placate " +
                         "it: ") +
-                    "\n\n" +
+                    "<br><br>" +
                     qsTr("Commands are case sensitive; the first character of a command is always a capital letter, " +
                         "followed by a number. For example, to set the aux fan to full speed, use M106 P2 S255:") +
-                    "\n" +
-                    space + qsTr("M106: G-code command for fan control") + "\n" +
-                    space + qsTr("P2: parameter to select which fan (aux = 2)") + "\n" +
+                    "<br>" +
+                    space + qsTr("M106: G-code command for fan control") + "<br>" +
+                    space + qsTr("P2: parameter to select which fan (aux = 2)") + "<br>" +
                     space + qsTr("S255: parameter to set fan speed (0 to 255)") +
-                    "\n\n" +
+                    "<br><br>" +
                     qsTr("For multi-line commands, each G-code command must be separated by the newline escape " +
                         "sequence, \\n. For example:") +
-                    "\n" +
+                    "<br>" +
                     space + qsTr("M106 P2 S255\\nG4 S5\\nM106 P2 S0") +
-                    "\n" +
+                    "<br><br>" +
                     space + qsTr("Aux fan to 255 -> Wait 5 sec -> Aux fan to 0")
                     : qsTr("This interface allows you to run commands on your printer as root. You can enter commands " +
                         "with the virtual keyboard, or put together commands from the shortcut bar at the bottom of " +
                         "the screen. Commands are executed synchronously, so long-running commands or commands " +
                         "that require user input may hang the UI; use caution! This is intended as a quick diagnostic " +
                         "tool, but for more intensive tasks, consider SSHing to the printer instead.") +
-                    "\n\n" +
+                    "<br><br>" +
                     qsTr("WARNING: It is possible to do permanent, irreversible damage to your printer from a root " +
                         "console. Do not enter commands unless you understand what you are typing.")
-                wrapMode: TextEdit.Wrap
+
+                placeholderTextColor: Colors.gray_300
             }
             function scroll(contentOffset){
                 // NB: future versions of Qt Quick will have to use flickableItem here, not contentItem
@@ -218,7 +226,7 @@ Item {
             clip:true
             delegate: Item {
                 id: itm
-                width: gcodeCmd ? 130 : (index < 8) ? 70 : 130
+                width: (index == 0) ? 100 : gcodeCmd ? 130 : (index < 8) ? 70 : 130
                 height: hotkeysList.height
                 ZButton {
                     text: modelData
@@ -231,20 +239,22 @@ Item {
                     borderColor: "transparent"
                     //cornerRadius: width / 2
                     onClicked: {
-                        if (gcodeCmd){
-                            if (inputTextBox.text == "") {
-                                inputTextBox.text = gcode_actions[index].trim();
-                            } else {
-                                inputTextBox.text =inputTextBox.text +"\\n"+ gcode_actions[index].trim();
-                            }
+                        if (index == 0 ){
+                            if (cmdHistory.length == 0) return;
+                            
+                                inputText = cmdHistory[historyPlaceholder];
+                                historyPlaceholder += -1;
+                                if (historyPlaceholder < 1) {
+                                    historyPlaceholder = cmdHistory.length - 1;
+                                }
                         } else {
-                            let cmdreplace = cmds[index];
-                            if (index < 8) {
-                                cmdreplace = cmdreplace.trim();
-                                inputTextBox.text = inputTextBox.text + cmdreplace.replace("<br>","");
+                            if (gcodeCmd){
+                                if (inputText.trim().length > 0) inputText += "\\n";
+                                inputText += gcode_actions[index]
                             } else {
-                                cmdreplace = cmdreplace.trim();
-                                inputTextBox.text =cmdreplace.replace("<br>","");
+                                let cmd = cmds[index].trim().replace("<br>","");
+                                if (index < 9) inputText += inputText;
+                                inputText += cmd;
                             }
                         }
                     }
@@ -335,6 +345,7 @@ Item {
                 onClicked: {
                     gcodeCmd = !gcodeCmd;
                     outputText = "";
+                    inputText = "";
                     DeviceManager.putSetting("cfw_default_console", gcodeCmd);
                 }
             }
@@ -366,6 +377,7 @@ Item {
             font: Fonts.body_28
             color: Colors.gray_200
             selectByMouse: true
+            text: ""//inputText
             verticalAlignment: TextInput.AlignVCenter
             inputMethodHints: gcodeCmd ? Qt.ImhAutoUppercase | Qt.ImhPreferUppercase | Qt.ImhPreferNumbers
                                 | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhLatinOnly
@@ -380,26 +392,9 @@ Item {
             }
             leftInset: -20
             rightInset: -20
-            // taphandler was not working because TextInput already has a MouseArea defined. 
-            //I like this idea though (long press to pull up historical commands) but we need
-            //to sort out input handling
-            /*TapHandler {
-                onTapped: {
-                    
-                }
-                onLongPressed: {
-                    if (cmdHistory.length == 0){
-                        return;
-                    }
-                    if (i >= cmdHistory.length){
-                        i = 0;
-                    }
-                    inputTextBox.clear();
-                    console.log(i, inputTextBox.text);
-                    inputTextBox.text = cmdHistory[i];
-                    i++;
-                }
-            }*/
+            Binding on text {
+                value: inputText
+            }
         }
 
         ZButton { 
@@ -415,7 +410,7 @@ Item {
             property string out
             property bool printing: PrintManager.currentTask.stage >= PrintTask.WORKING
             onClicked: {
-                var inputCmd = inputTextBox.text.trim();
+                var inputCmd = inputText.trim();
                 if (inputCmd.length <1) return;
                 inputCmd = inputCmd.replace(/\\n/g, '\n  ');
                 
@@ -439,6 +434,7 @@ Item {
 
                 }
                 cmdHistory.push(inputCmd);
+                historyPlaceholder = cmdHistory.length-1;
                 if (outputText != "")
                     outputText += "\n\n";
                 var origHeight = outputText == "" ? 0 : outputTextArea.contentHeight;
@@ -447,7 +443,7 @@ Item {
                 if (!gcodeCmd) {
                     termScroll.scroll(origHeight);
                 }
-                inputTextBox.text = "";
+                inputText = "";
             }
         }
 
@@ -492,7 +488,7 @@ Item {
                                 isUsePassWord : false,
                                 isInputShow : true,
                                 isInputting_obj : rect_isInputting_obj,
-                                output_obj : savePath});    
+                                output_obj : inputText});    
         }
     QtObject {
         id: rect_isInputting_obj
