@@ -3,6 +3,7 @@
 .import X1PlusNative 1.0 as JSX1PlusNative
 .import "./x1plus/DDS.js" as X1PlusDDS
 .import "./x1plus/Stats.js" as X1PlusStats
+.import "./x1plus/OTA.js" as X1PlusOTA
 .import "./x1plus/MeshCalcs.js" as X1PlusMeshCalcs
 .import "./x1plus/Binding.js" as X1PlusBinding
 .import "./x1plus/GpioKeys.js" as X1PlusGpioKeys
@@ -51,6 +52,8 @@ X1Plus.GpioKeys = X1PlusGpioKeys;
 var GpioKeys  = X1PlusGpioKeys;
 X1Plus.DBus = X1PlusDBus;
 var DBus = X1PlusDBus;
+X1Plus.OTA = X1PlusOTA;
+var OTA = X1PlusOTA;
 
 Stats.X1Plus = X1Plus;
 DDS.X1Plus = X1Plus;
@@ -58,6 +61,7 @@ BedMeshCalibration.X1Plus = X1Plus;
 ShaperCalibration.X1Plus = X1Plus;
 GpioKeys.X1Plus = X1Plus;
 DBus.X1Plus = X1Plus;
+OTA.X1Plus = X1Plus;
 
 var _DdsListener = JSDdsListener.DdsListener;
 var _X1PlusNative = JSX1PlusNative.X1PlusNative;
