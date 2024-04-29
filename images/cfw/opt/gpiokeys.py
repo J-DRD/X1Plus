@@ -8,7 +8,7 @@ import time
 from evdev import InputDevice, categorize, ecodes
 from logger.custom_logger import CustomLogger
  
-LONG_PRESS_THRESHOLD = 0.850 # seconds
+LONG_PRESS_THRESHOLD = 1.70 # seconds
 KEY_POWER = 116
 KEY_STOP = 128
 #KEY_DOOR = 134 #DOOR SENSOR
